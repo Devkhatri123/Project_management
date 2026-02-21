@@ -52,7 +52,7 @@ public class AuthService {
             user.setProfile_pic("https://static.thenounproject.com/png/4154905-200.png");
             user.setPassword(passwordEncoder.encode(registerRequestDTO.password()));
             user.setVerification(createVerification(user,"EMAIL"));
-            user = userRepository.save(user);
+            userRepository.save(user);
         } else {
           throw new InvalidSelectedRole("Invalid role selected");
         }
