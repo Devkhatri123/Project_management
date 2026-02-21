@@ -1,0 +1,17 @@
+package com.project_management.project_management.enums;
+
+public enum Authority {
+    CAN_CREATE_WORKSPACE,
+    CAN_INVITE_NEW_USER,
+    CAN_CREATE_PROJECT,
+    CAN_CREATE_TASK,
+    CAN_ASSIGN_TASK_TO_MEMBERS,
+    CAN_REMOVE_MEMBER,
+    CAN_DELETE_PROJECT,
+    CAN_DELETE_WORKSPACE,
+
+
+    CAN_COMPLETE_TASK,
+    CAN_VIEW_ASSIGNED_TASK,
+    CAN_CHAT_WITH_USERS
+}
