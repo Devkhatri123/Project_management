@@ -7,6 +7,7 @@ import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ForgetPasswordRepo;
 import com.project_management.project_management.repository.UserRepository;
+import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -28,20 +29,22 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final ForgetPasswordRepo forgetPasswordRepo;
+    private final EmailService emailService;
 
     @Autowired
     public AuthService(final UserRepository userRepository, final ModelMapper modelMapper, final BCryptPasswordEncoder bCryptPasswordEncoder, final JwtService jwtService, final RefreshTokenService refreshTokenService,
-                       final ForgetPasswordRepo forgetPasswordRepo){
+                       final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService){
         this.userRepository = userRepository;
         this.passwordEncoder = bCryptPasswordEncoder;
         this.modelMapper = modelMapper;
         this.jwtService = jwtService;
         this.refreshTokenService = refreshTokenService;
         this.forgetPasswordRepo = forgetPasswordRepo;
+        this.emailService = emailService;
     }
 
     @Transactional
-    public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole {
+    public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException {
         if(userRepository.existsByEmail(registerRequestDTO.email())){
             throw new EmailAlreadyExists("Email is already taken");
         }
@@ -51,8 +54,10 @@ public class AuthService {
             user.set_enabled(false);
             user.setProfile_pic("https://static.thenounproject.com/png/4154905-200.png");
             user.setPassword(passwordEncoder.encode(registerRequestDTO.password()));
-            user.setVerification(createVerification(user,"EMAIL"));
-            userRepository.save(user);
+            user.setVerification(createVerification(user));
+            user = userRepository.save(user);
+            // Send account created successful email
+            emailService.registrationSuccessfulEmail(user);
         } else {
           throw new InvalidSelectedRole("Invalid role selected");
         }
@@ -61,24 +66,20 @@ public class AuthService {
         User user = userRepository.findByEmail(loginRequest.email())
                 .orElseThrow(() -> new IncorrectEmail("Incorrect email. Try again"));
         if(passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
-            String jwt = jwtService.generateJwt(user);
+             // Generate a new refresh token and save it in db
             RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
             refreshTokenService.saveRefreshToken(refreshToken);
-            Map<String, Object> response = new HashMap<>();
-            response.put("jwt", jwt);
-            response.put("refreshToken", refreshToken.getToken());
-            return response;
+            return createJwtResponse(user, refreshToken.getToken(), refreshToken.getExpiresOn());
         } else {
            throw new IncorrectPassword("Wrong password");
         }
     }
 
-    private Verification createVerification(User user, String verificationType){
+    private Verification createVerification(User user){
         return Verification.builder()
                  .user(user)
                  .isExpired(false)
                  .otpCode(new Random().nextInt(100000,999999))
-                 .verificationType(verificationType)
                  .expiresAt(LocalDateTime.now().plusMinutes(3))
                  .build();
     }
@@ -88,36 +89,38 @@ public class AuthService {
        RefreshToken refreshToken = refreshTokenService.findRefreshToken(token);
        User user = refreshToken.getUser();
 
-       LocalDateTime userRefreshTokenExpiryInUserTimeZone = refreshToken
-               .getExpiresOn()
-               .atZone(ZoneId.of("UTC"))
-               .withZoneSameInstant(ZoneId.of(timeZone)).toLocalDateTime();
+       LocalDateTime userRefreshTokenExpiryInUserTimeZone = convertUTCTimeInUserTimeZone(refreshToken.getExpiresOn(), timeZone);
 
        if(!userRefreshTokenExpiryInUserTimeZone.isBefore(LocalDateTime.now(ZoneId.of(timeZone)))){
            refreshTokenService.deleteRefreshToken(refreshToken.getToken());
-           String jwt = jwtService.generateJwt(user);
            RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(user);
-           refreshTokenService.saveRefreshToken(refreshToken);
-           Map<String, Object> response = new HashMap<>();
-           response.put("jwt", jwt);
-           response.put("refreshToken", newRefreshToken.getToken());
-           response.put("expiry",refreshToken.getExpiresOn());
-           return response;
+           refreshTokenService.saveRefreshToken(newRefreshToken);
+           return createJwtResponse(user, newRefreshToken.getToken(), newRefreshToken.getExpiresOn());
        }
        log.info("Refresh token expired");
        throw new TokenExpired("Please sign in again");
+    }
+    private Map<String, Object> createJwtResponse(User user,String refreshToken,LocalDateTime refreshTokenExpiry){
+        Map<String, Object> response = new HashMap<>();
+        response.put("jwt", jwtService.generateJwt(user));
+        response.put("refreshToken", refreshToken);
+        response.put("expiry",refreshTokenExpiry);
+        return response;
     }
     public UserDTO getLoggedInUser(){
      UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
      User user = userDetails.getUser();
      UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+     userDTO.setAuthorities(assignAuthoritiesToLoggedInUser(user, userDTO));
+     return userDTO;
+    }
+    // Set authorities to loggedInUser
+    private List<String> assignAuthoritiesToLoggedInUser(User user, UserDTO userDTO){
         List<String> authorities = new ArrayList<>();
-        // Normal User authorities (Worker)
-        if(!userDTO.getRole().equals(Role.NONE.toString())) {
-            authorities.add(Authority.CAN_VIEW_ASSIGNED_TASK.name());
-            authorities.add(Authority.CAN_COMPLETE_TASK.name());
+        authorities.add(Authority.CAN_VIEW_ASSIGNED_TASK.name());
+        authorities.add(Authority.CAN_COMPLETE_TASK.name());
 
-            if (user.getRole().equals(Role.OWNER.toString())) {
+        if (user.getRole().equals(Role.OWNER.toString())) {
                 authorities.add(Authority.CAN_CREATE_WORKSPACE.name());
                 authorities.add(Authority.CAN_INVITE_NEW_USER.name());
                 authorities.add(Authority.CAN_CREATE_TASK.name());
@@ -128,10 +131,9 @@ public class AuthService {
                 authorities.add(Authority.CAN_DELETE_WORKSPACE.name());
                 userDTO.setAuthorities(authorities);
             }
-        }
-        return userDTO;
+        return authorities;
     }
-    public void forgetPassword(ForgetPasswordDTO forgetPasswordDTO, String resetToken) throws TokenExpired {
+    public void forgetPassword(ForgetPasswordDTO forgetPasswordDTO, String resetToken) throws TokenExpired, MessagingException {
       ForgetPassword forgetPassword = forgetPasswordRepo.findOneByToken(resetToken)
               .orElseThrow(() -> new TokenExpired("Forget password token has been expired"));
       LocalDateTime userTimeZoneExpiry = convertUTCTimeInUserTimeZone(forgetPassword.getExpiry(),forgetPasswordDTO.timeZone());
@@ -141,6 +143,8 @@ public class AuthService {
               user.setPassword(passwordEncoder.encode(forgetPasswordDTO.confirmPassword()));
               user.setForgetPassword(null);
               userRepository.save(user);
+              // send password changed successfully email
+              emailService.PasswordChangedSuccessfully(user);
           }
       }
        throw new TokenExpired("Reset has been expired ");
@@ -151,13 +155,15 @@ public class AuthService {
                 .withZoneSameInstant(ZoneId.of(timeZone)).toLocalDateTime();
     }
 
-    public void generateForgetPasswordToken(String email) throws IncorrectEmail {
+    public void generateForgetPasswordToken(String email) throws IncorrectEmail, MessagingException {
        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IncorrectEmail("Incorrect email. User doesn't exist of this email"));
       ForgetPassword forgetPassword = createForgetPasswordToken(user);
       user.setForgetPassword(forgetPassword);
       userRepository.save(user);
       // Send forget password link to user's email
+      emailService.ForgetPasswordLink(user);
+
     }
     private ForgetPassword createForgetPasswordToken(User user){
         return ForgetPassword.builder()
@@ -166,5 +172,18 @@ public class AuthService {
                 .expiry(LocalDateTime.now().plusMinutes(3))
                 .is_Active(true)
                 .build();
+    }
+
+    public void verify(VerifyDTO verifyDTO) throws IncorrectEmail {
+      User user = userRepository.findByEmail(verifyDTO.email())
+               .orElseThrow(() -> new IncorrectEmail("Invalid email. Try correct email"));
+      LocalDateTime userTimeZoneExpiry = convertUTCTimeInUserTimeZone(user.getVerification().getExpiresAt(), verifyDTO.timeZone());
+     if(!userTimeZoneExpiry.isBefore(LocalDateTime.now(ZoneId.of(verifyDTO.timeZone())))){
+         if(user.getVerification().getOtpCode() == verifyDTO.code()){
+             user.set_enabled(true);
+             user.setVerification(null);
+             userRepository.save(user);
+         }
+     }
     }
 }

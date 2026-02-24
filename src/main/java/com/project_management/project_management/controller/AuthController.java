@@ -1,15 +1,13 @@
 package com.project_management.project_management.controller;
 
-import com.project_management.project_management.Dtos.ErrorResponse;
-import com.project_management.project_management.Dtos.ForgetPasswordDTO;
-import com.project_management.project_management.Dtos.LoginRequest;
-import com.project_management.project_management.Dtos.RegisterRequestDTO;
+import com.project_management.project_management.Dtos.*;
 import com.project_management.project_management.enums.TokenExpired;
 import com.project_management.project_management.exception.user.EmailAlreadyExists;
 import com.project_management.project_management.exception.user.IncorrectEmail;
 import com.project_management.project_management.exception.user.IncorrectPassword;
 import com.project_management.project_management.exception.user.InvalidSelectedRole;
 import com.project_management.project_management.service.AuthService;
+import jakarta.mail.MessagingException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -40,10 +38,36 @@ public class AuthController {
      } catch (EmailAlreadyExists | InvalidSelectedRole e){
          response.put("message", e.getMessage());
          response.put("status", 400);
-       return ResponseEntity.badRequest().body(response);
+         return ResponseEntity.badRequest().body(response);
+     }catch (MessagingException e){
+         log.error("Exception in sending email after registration for email: {}", registerRequestDTO.email());
+         response.put("message", "Internal Server error. Account can't be created. Try again");
+         response.put("status", 500);
+         return ResponseEntity.internalServerError().body(response);
      } catch (RuntimeException e){
          log.error("exception in registration: {}", e.getMessage());
          response.put("message", "Internal Server error");
+         response.put("status", 500);
+         return ResponseEntity.internalServerError().body(response);
+     }
+    }
+
+    @PostMapping("/verifyEmail")
+    public  ResponseEntity<?> verify(@RequestBody VerifyDTO verifyDTO){
+     Map<String, Object> response = new HashMap<>();
+     try{
+         authService.verify(verifyDTO);
+         response.put("message", "Verification successful!");
+         response.put("status", 200);
+         return ResponseEntity.ok().body(response);
+     } catch (IncorrectEmail e) {
+         log.error("Invalid email for verification: {}", verifyDTO.email());
+         response.put("message", e.getMessage());
+         response.put("status", 400);
+         return ResponseEntity.badRequest().body(response);
+     } catch (RuntimeException e){
+         log.error("exception in email verification: {}", e.getMessage());
+         response.put("message", "Internal Server error. Try again");
          response.put("status", 500);
          return ResponseEntity.internalServerError().body(response);
      }
@@ -108,10 +132,15 @@ public class AuthController {
             response.put("status", 201);
             return ResponseEntity.created(null).body(response);
         } catch (IncorrectEmail e) {
-            log.error(e.getMessage(), email);
+            log.error("Incorrect email. Forget password link can't be created");
             response.put("message",e.getMessage());
             response.put("status", 400);
             return ResponseEntity.badRequest().body(response);
+        } catch (MessagingException e){
+            log.error("exception in sending forget password link email: {}", e.getMessage());
+            response.put("message", "Internal Server error");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
         } catch (RuntimeException e) {
             log.error("exception in creating forget password token: {}", e.getMessage());
             response.put("message", "Internal Server error");
@@ -134,6 +163,11 @@ public class AuthController {
             return ResponseEntity.badRequest().body(response);
         } catch (RuntimeException e){
             log.error("exception in reseting the password against provided token: {}", resetToken);
+            response.put("message", "Internal Server error");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
+        } catch (MessagingException e) {
+            log.error("exception in sending password changed email: {}", resetToken);
             response.put("message", "Internal Server error");
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);

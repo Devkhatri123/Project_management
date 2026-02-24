@@ -23,7 +23,7 @@ public class User {
 
     @OneToOne(cascade = {CascadeType.ALL})
     private Verification verification;
-    @OneToMany
+    @OneToMany(cascade = CascadeType.ALL)
     private List<WorkSpace> myWorkSpaces;
     @OneToOne(cascade = CascadeType.ALL)
     private ForgetPassword forgetPassword;

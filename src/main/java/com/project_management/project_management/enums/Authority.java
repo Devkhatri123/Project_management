@@ -13,5 +13,6 @@ public enum Authority {
 
     CAN_COMPLETE_TASK,
     CAN_VIEW_ASSIGNED_TASK,
-    CAN_CHAT_WITH_USERS
+    CAN_CHAT_WITH_USERS,
+
 }

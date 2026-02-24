@@ -3,6 +3,7 @@ package com.project_management.project_management.model;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -11,14 +12,13 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @RequiredArgsConstructor
+@Getter
 public class Verification {
     @Id
     @OneToOne
     @JoinColumn(name = "user_id")
     private User user;
-    private String verificationType;
     private int otpCode;
     private LocalDateTime expiresAt;
     private boolean isExpired;
-
 }
