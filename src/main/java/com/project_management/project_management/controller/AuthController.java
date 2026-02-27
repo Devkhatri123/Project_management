@@ -8,6 +8,7 @@ import com.project_management.project_management.exception.user.IncorrectPasswor
 import com.project_management.project_management.exception.user.InvalidSelectedRole;
 import com.project_management.project_management.service.AuthService;
 import jakarta.mail.MessagingException;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,18 +29,18 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequestDTO registerRequestDTO){
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO registerRequestDTO){
      Map<String, Object> response = new HashMap<>();
      try{
       authService.register(registerRequestDTO);
-      response.put("message", "Registration successful! Verification code sent to email");
+      response.put("message", "Registration successful! We've sent a link to your email. If you don't see it in 5 minutes, click to resend.");
       response.put("status", 201);
       return ResponseEntity.created(null).body(response);
      } catch (EmailAlreadyExists | InvalidSelectedRole e){
          response.put("message", e.getMessage());
          response.put("status", 400);
          return ResponseEntity.badRequest().body(response);
-     }catch (MessagingException e){
+     } catch (MessagingException e){
          log.error("Exception in sending email after registration for email: {}", registerRequestDTO.email());
          response.put("message", "Internal Server error. Account can't be created. Try again");
          response.put("status", 500);
@@ -74,16 +75,17 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest,
-                                   @RequestHeader(name = "time_zone") String timeZone){
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest){
         Map<String, Object> response = new HashMap<>();
         try{
           response = authService.login(loginRequest);
           response.put("status", 200);
           return ResponseEntity.ok().body(response);
         }catch (IncorrectEmail | IncorrectPassword e){
-            ErrorResponse errorResponse = new ErrorResponse(e.getMessage(), 400);
-            return ResponseEntity.badRequest().body(errorResponse);
+            log.error(e.getMessage());
+            response.put("message", e.getMessage());
+            response.put("status", 400);
+            return ResponseEntity.badRequest().body(response);
         } catch (RuntimeException e){
             log.error("exception in login: {}", e.getMessage());
             response.put("message", "Internal Server error");
@@ -168,6 +170,31 @@ public class AuthController {
             return ResponseEntity.internalServerError().body(response);
         } catch (MessagingException e) {
             log.error("exception in sending password changed email: {}", resetToken);
+            response.put("message", "Internal Server error");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    @PostMapping("/resendEmail/{email}")
+    public ResponseEntity<?> resendEmail(@PathVariable String email ,@RequestParam String emailType){
+        Map<String, Object> response = new HashMap<>();
+        try {
+            authService.resendEmail(email, emailType);
+            response.put("message", "email sent successfully!");
+            response.put("status", 201);
+            return ResponseEntity.created(null).body(response);
+        } catch (IncorrectEmail e) {
+            log.error("Email cannot be resend because email is not correct: {}", email);
+            response.put("message", e.getMessage());
+            response.put("status", 400);
+            return ResponseEntity.badRequest().body(response);
+        } catch (MessagingException e) {
+            log.error("Email cannot be resend because there is internal problem in sending email: {}", e.getMessage());
+            response.put("message", "Internal server error. Email can't be sent. Try again");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
+        } catch (RuntimeException e){
+            log.error("exception in sending email: {}", e.getMessage());
             response.put("message", "Internal Server error");
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);

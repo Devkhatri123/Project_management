@@ -15,10 +15,11 @@ import java.time.LocalDateTime;
 @Getter
 public class Verification {
     @Id
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    private String user_id;
     private int otpCode;
     private LocalDateTime expiresAt;
     private boolean isExpired;
+    @OneToOne
+    @MapsId
+    private User user;
 }

@@ -12,7 +12,6 @@ public class UserDTO {
     private String email;
     private String title;
     private String profile_pic;
-    private String role;
-    private String is_enabled;
+    private boolean is_enabled;
     private List<String> authorities;
 }

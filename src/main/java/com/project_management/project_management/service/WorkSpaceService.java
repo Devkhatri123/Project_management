@@ -1,0 +1,44 @@
+package com.project_management.project_management.service;
+
+import com.project_management.project_management.Dtos.CreateWorkSpaceDTO;
+import com.project_management.project_management.enums.Role;
+import com.project_management.project_management.model.User;
+import com.project_management.project_management.model.UserDetailsImpl;
+import com.project_management.project_management.model.WorkSpace;
+import com.project_management.project_management.repository.WorkSpaceRepository;
+import com.project_management.project_management.util.UserUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.UUID;
+
+@Service
+public class WorkSpaceService {
+    private final WorkSpaceRepository workSpaceRepository;
+    private final static String WORKSPACE_DUMMY_LOGO = "https://lh3.googleusercontent.com/rd-gg/AMW1TPp9FpvxAWqgyfXtrPvlLPcAijdLTx8hi2FiICCGcpPH-FDgrPWiL7-rlntvbxTtGbbScfrW1srqh02Emhh7-NdN-pBdt6xPff3eLuTnt_tFPSPz1CcbAUlmXDCs8jN79uE9GH9Qe1s34PmP6Bu8VPzvjBv5VSKbBMXa-XmQgmORBAJ8903VyQFfPmZhujI0j5st4bW10MoJt4E3BrZLAAxESe8S7gQe3Hz-zMEZlNmREh3BSacSDKWbSSdGtwyvyxDVKa2pYD5MVxUG5HmHGLcDfgv8xt1cpuyXd-httvqSxnjiEMPVTxBnJm9D2uxFu12I_ElBLleA0sGNi8154hYJtN-8VJxYJpms_YrW8CQ_SOgXF5XmKQ7eFVjuVeB5nHwsWmAE6vVAR2zx9G_Q93nk8F59z5pR7wrPBzJp6UBeUdOGORadZ8gFDNv_t-FKZQgHx16t40uAx_id_LNbvoLqNipehKbFAv_NtG10UHK_UxRhWT-O7r8h7pyxK19Mharb5SONPTsGO1D-pTDi9BGLgopzneGIQo5ReszkAstPcvYct_3AUVf0rzmPszD6J-Nzg4gs33lcTG7BQA6unXk5r_uGNez5ZnK_iHkMCHMirSEFtQbKTNjTH1moeRxlITN50o8qiCq5Wb8AhgZXdLlmLMmyws5lV7jWzoJ3g8alxtNrtDvqTo931yNiovNnhQOD2-AEULv5SUFafzmCrQIlyZecP9p0aiGDWwo1jQPG4bUqT05OdBP0HXM1cz4yFSvDRzIbxWauZawxSdi8NodD3FD7oSTvaEVhyQqVmoH2Z1tghH4evgaww31L3ejK8Qy4nIDBVCLdO7zmM968uraoncYH7yLsm0q3WkIBhFNHcXrsdQ9DVto7cA3tD0rJF2uvcMtBZuv7qU71vTnjnbznI0UhyB4ysE-EQAjfR3ZFa21KHeUas45ILdI1PdFUhn6tNHPsOvX9FrtW5a88CZCvliilvz3ui2iWa6qQ8LCaTK7pWitFcNkdeBzjdjUoUoaiiZxSmMOIewBTbDIi1zAlS3y7atksA3d9HPDtoRmErLg7u2VxDAxrjClxrCq2hbCE5792faFeOM4WV1tvNluZWohVgzpXZmAfokCNVx8uc9r0sbPD3CaZA1ZMkLt6bmSvsay79789kNPM9DS0stVcFG7UdQAyDsZXffiI73_TaqarkSVfJxTs7w0yGNRx8DpQZt6OI-ONml3aWianxzF3zTz9nWwT1BzEBRslAal8d8le6YbaQno96iQezF_L7Upqwo1gPV_gy4LPZWnPyAA1OPz0KUkdwMSmbylueYiUyyjrCAeA3w9QYiht5Ek5m3jyeBCItDbRZj9drvTq0id2F7xQS53lpU5bVjf7UI0dIiRS-xyAbu0h9CfQL8PxsmkoxSljPZb0E0z9LjonmIWBAyqBNKEP8b78uaMSbTFEZli-AKs3YMV34NY=s1024-rj";
+
+    @Autowired
+    public WorkSpaceService(final WorkSpaceRepository workSpaceRepository){
+        this.workSpaceRepository = workSpaceRepository;
+    }
+
+    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO, String userTimeZone){
+     User currentUser = UserUtil.getCurrentUser();
+     if(currentUser.getRole().equals(Role.OWNER.toString())){
+         WorkSpace workSpace = WorkSpace.builder()
+                 .logo(createWorkSpaceDTO.logo() == null ? WORKSPACE_DUMMY_LOGO : "")
+                 .title(createWorkSpaceDTO.title())
+                 .description(createWorkSpaceDTO.description())
+                 .isLocked(false)
+                 .createdOn(LocalDateTime.now())
+                 .owner(currentUser)
+                 .key(UUID.randomUUID().toString().substring(0, 12).toUpperCase())
+                 .build();
+
+         workSpaceRepository.save(workSpace);
+     }
+    }
+}

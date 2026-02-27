@@ -7,6 +7,7 @@ import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ForgetPasswordRepo;
 import com.project_management.project_management.repository.UserRepository;
+import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -43,24 +44,21 @@ public class AuthService {
         this.emailService = emailService;
     }
 
-    @Transactional
+    @Transactional(rollbackOn = {EmailAlreadyExists.class, MessagingException.class, InvalidSelectedRole.class, RuntimeException.class})
     public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException {
         if(userRepository.existsByEmail(registerRequestDTO.email())){
             throw new EmailAlreadyExists("Email is already taken");
         }
         User user = modelMapper.map(registerRequestDTO, User.class);
-        if(registerRequestDTO.usingAs().equals(Role.valueOf(registerRequestDTO.usingAs()).toString())){
-            user.setRole(registerRequestDTO.usingAs());
+        user.setRole(registerRequestDTO.role().equals("Company") ? Role.OWNER.name() : Role.WORKER.name());
             user.set_enabled(false);
+            user.setTitle("None");
             user.setProfile_pic("https://static.thenounproject.com/png/4154905-200.png");
             user.setPassword(passwordEncoder.encode(registerRequestDTO.password()));
             user.setVerification(createVerification(user));
             user = userRepository.save(user);
-            // Send account created successful email
+            // Send account creation successful email
             emailService.registrationSuccessfulEmail(user);
-        } else {
-          throw new InvalidSelectedRole("Invalid role selected");
-        }
     }
     public Map<String, Object> login(LoginRequest loginRequest) throws IncorrectEmail, IncorrectPassword {
         User user = userRepository.findByEmail(loginRequest.email())
@@ -78,6 +76,7 @@ public class AuthService {
     private Verification createVerification(User user){
         return Verification.builder()
                  .user(user)
+                 .user_id(user.getId())
                  .isExpired(false)
                  .otpCode(new Random().nextInt(100000,999999))
                  .expiresAt(LocalDateTime.now().plusMinutes(3))
@@ -108,9 +107,9 @@ public class AuthService {
         return response;
     }
     public UserDTO getLoggedInUser(){
-     UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-     User user = userDetails.getUser();
+     User user = UserUtil.getCurrentUser();
      UserDTO userDTO = modelMapper.map(user, UserDTO.class);
+     userDTO.set_enabled(user.is_enabled());
      userDTO.setAuthorities(assignAuthoritiesToLoggedInUser(user, userDTO));
      return userDTO;
     }
@@ -168,6 +167,7 @@ public class AuthService {
     private ForgetPassword createForgetPasswordToken(User user){
         return ForgetPassword.builder()
                 .user(user)
+                .id(user.getId())
                 .token(UUID.randomUUID().toString().substring(0,10))
                 .expiry(LocalDateTime.now().plusMinutes(3))
                 .is_Active(true)
@@ -185,5 +185,19 @@ public class AuthService {
              userRepository.save(user);
          }
      }
+    }
+
+    public void resendEmail(String email, String emailType) throws IncorrectEmail, MessagingException {
+       User user = userRepository.findByEmail(email)
+               .orElseThrow(() -> new IncorrectEmail("Incorrect email"));
+       if(emailType.equals("VERIFICATION_CODE")){
+           user.setVerification(createVerification(user));
+           userRepository.save(user);
+           emailService.resendVerificationEmail(user);
+       } else if (emailType.equals("FORGET_PASSWORD_LINK")){
+           user.setForgetPassword(createForgetPasswordToken(user));
+           userRepository.save(user);
+           emailService.ForgetPasswordLink(user);
+       }
     }
 }

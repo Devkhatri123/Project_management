@@ -2,10 +2,7 @@ package com.project_management.project_management.model;
 
 
 import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -14,13 +11,15 @@ import java.time.LocalDateTime;
 @Entity
 @Builder
 @RequiredArgsConstructor
+@AllArgsConstructor
 public class ForgetPassword {
     @Id
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    private User user;
+    private String id;
     @Column(unique = true)
     private String token;
     private LocalDateTime expiry;
     private boolean is_Active;
+    @OneToOne
+    @MapsId
+    private User user;
 }
