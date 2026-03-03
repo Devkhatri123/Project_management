@@ -1,11 +1,12 @@
 package com.project_management.project_management.service;
 import com.project_management.project_management.Dtos.*;
-import com.project_management.project_management.enums.Authority;
-import com.project_management.project_management.enums.Role;
-import com.project_management.project_management.enums.TokenExpired;
+import com.project_management.project_management.enums.User_Enums.Authority;
+import com.project_management.project_management.enums.User_Enums.Role;
+import com.project_management.project_management.exception.user.TokenExpired;
 import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ForgetPasswordRepo;
+import com.project_management.project_management.repository.PlanRepository;
 import com.project_management.project_management.repository.UserRepository;
 import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
@@ -13,12 +14,13 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.*;
 
 @Slf4j
@@ -31,10 +33,11 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final ForgetPasswordRepo forgetPasswordRepo;
     private final EmailService emailService;
+    private final SubscriptionService subscriptionService;
 
     @Autowired
     public AuthService(final UserRepository userRepository, final ModelMapper modelMapper, final BCryptPasswordEncoder bCryptPasswordEncoder, final JwtService jwtService, final RefreshTokenService refreshTokenService,
-                       final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService){
+                       final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService, final SubscriptionService subscriptionService){
         this.userRepository = userRepository;
         this.passwordEncoder = bCryptPasswordEncoder;
         this.modelMapper = modelMapper;
@@ -42,20 +45,22 @@ public class AuthService {
         this.refreshTokenService = refreshTokenService;
         this.forgetPasswordRepo = forgetPasswordRepo;
         this.emailService = emailService;
+        this.subscriptionService = subscriptionService;
     }
 
-    @Transactional(rollbackOn = {EmailAlreadyExists.class, MessagingException.class, InvalidSelectedRole.class, RuntimeException.class})
-    public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException {
+//    @Transactional(rollbackOn = {EmailAlreadyExists.class, MessagingException.class, InvalidSelectedRole.class, RuntimeException.class})
+    public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected {
         if(userRepository.existsByEmail(registerRequestDTO.email())){
             throw new EmailAlreadyExists("Email is already taken");
         }
         User user = modelMapper.map(registerRequestDTO, User.class);
-        user.setRole(registerRequestDTO.role().equals("Company") ? Role.OWNER.name() : Role.WORKER.name());
+        user.setRole(registerRequestDTO.role().equals("Company") ? Role.OWNER : Role.WORKER);
             user.set_enabled(false);
             user.setTitle("None");
             user.setProfile_pic("https://static.thenounproject.com/png/4154905-200.png");
             user.setPassword(passwordEncoder.encode(registerRequestDTO.password()));
             user.setVerification(createVerification(user));
+            user.setSubscription(subscriptionService.createSubscription("BASIC"));
             user = userRepository.save(user);
             // Send account creation successful email
             emailService.registrationSuccessfulEmail(user);
@@ -83,14 +88,12 @@ public class AuthService {
                  .build();
     }
 
-    @Transactional
+    @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
     public Map<String, Object> refreshToken(String token,String timeZone) throws TokenExpired {
        RefreshToken refreshToken = refreshTokenService.findRefreshToken(token);
        User user = refreshToken.getUser();
 
-       LocalDateTime userRefreshTokenExpiryInUserTimeZone = convertUTCTimeInUserTimeZone(refreshToken.getExpiresOn(), timeZone);
-
-       if(!userRefreshTokenExpiryInUserTimeZone.isBefore(LocalDateTime.now(ZoneId.of(timeZone)))){
+       if(!refreshToken.getExpiresOn().isBefore(LocalDateTime.now(ZoneOffset.UTC))){
            refreshTokenService.deleteRefreshToken(refreshToken.getToken());
            RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(user);
            refreshTokenService.saveRefreshToken(newRefreshToken);
@@ -103,7 +106,6 @@ public class AuthService {
         Map<String, Object> response = new HashMap<>();
         response.put("jwt", jwtService.generateJwt(user));
         response.put("refreshToken", refreshToken);
-        response.put("expiry",refreshTokenExpiry);
         return response;
     }
     public UserDTO getLoggedInUser(){
@@ -119,7 +121,7 @@ public class AuthService {
         authorities.add(Authority.CAN_VIEW_ASSIGNED_TASK.name());
         authorities.add(Authority.CAN_COMPLETE_TASK.name());
 
-        if (user.getRole().equals(Role.OWNER.toString())) {
+        if (user.getRole().equals(Role.OWNER)) {
                 authorities.add(Authority.CAN_CREATE_WORKSPACE.name());
                 authorities.add(Authority.CAN_INVITE_NEW_USER.name());
                 authorities.add(Authority.CAN_CREATE_TASK.name());
@@ -132,11 +134,10 @@ public class AuthService {
             }
         return authorities;
     }
-    public void forgetPassword(ForgetPasswordDTO forgetPasswordDTO, String resetToken) throws TokenExpired, MessagingException {
+    public void forgetPassword(ForgetPasswordDTO forgetPasswordDTO, String resetToken) throws TokenExpired, MessagingException, PasswordDoesNotMatch, TokenNotFound {
       ForgetPassword forgetPassword = forgetPasswordRepo.findOneByToken(resetToken)
-              .orElseThrow(() -> new TokenExpired("Forget password token has been expired"));
-      LocalDateTime userTimeZoneExpiry = convertUTCTimeInUserTimeZone(forgetPassword.getExpiry(),forgetPasswordDTO.timeZone());
-       if(!userTimeZoneExpiry.isBefore(LocalDateTime.now(ZoneId.of(forgetPasswordDTO.timeZone())))){
+              .orElseThrow(() -> new TokenNotFound("Forget password link has been expired"));
+       if(!forgetPassword.getExpiry().isBefore(LocalDateTime.now(ZoneOffset.UTC))){
           if(forgetPasswordDTO.newPassword().equals(forgetPasswordDTO.confirmPassword())){
               User user = forgetPassword.getUser();
               user.setPassword(passwordEncoder.encode(forgetPasswordDTO.confirmPassword()));
@@ -144,18 +145,14 @@ public class AuthService {
               userRepository.save(user);
               // send password changed successfully email
               emailService.PasswordChangedSuccessfully(user);
+          } else {
+              throw new PasswordDoesNotMatch("Password does not match");
           }
       }
-       throw new TokenExpired("Reset has been expired ");
+       throw new TokenExpired("Link has been expired. Try again by requesting new link ");
     }
-    private LocalDateTime convertUTCTimeInUserTimeZone(LocalDateTime utcTime, String timeZone){
-        return utcTime
-                .atZone(ZoneId.of("UTC"))
-                .withZoneSameInstant(ZoneId.of(timeZone)).toLocalDateTime();
-    }
-
     public void generateForgetPasswordToken(String email) throws IncorrectEmail, MessagingException {
-       User user = userRepository.findByEmail(email)
+      User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IncorrectEmail("Incorrect email. User doesn't exist of this email"));
       ForgetPassword forgetPassword = createForgetPasswordToken(user);
       user.setForgetPassword(forgetPassword);
@@ -169,21 +166,24 @@ public class AuthService {
                 .user(user)
                 .id(user.getId())
                 .token(UUID.randomUUID().toString().substring(0,10))
-                .expiry(LocalDateTime.now().plusMinutes(3))
+                .expiry(LocalDateTime.now(ZoneOffset.UTC).plusMinutes(3))
                 .is_Active(true)
                 .build();
     }
 
-    public void verify(VerifyDTO verifyDTO) throws IncorrectEmail {
+    public void verify(VerifyDTO verifyDTO) throws IncorrectEmail, TokenExpired, WrongVerificationCode {
       User user = userRepository.findByEmail(verifyDTO.email())
                .orElseThrow(() -> new IncorrectEmail("Invalid email. Try correct email"));
-      LocalDateTime userTimeZoneExpiry = convertUTCTimeInUserTimeZone(user.getVerification().getExpiresAt(), verifyDTO.timeZone());
-     if(!userTimeZoneExpiry.isBefore(LocalDateTime.now(ZoneId.of(verifyDTO.timeZone())))){
+     if(!user.getVerification().getExpiresAt().isBefore(LocalDateTime.now(ZoneOffset.UTC))){
          if(user.getVerification().getOtpCode() == verifyDTO.code()){
              user.set_enabled(true);
              user.setVerification(null);
              userRepository.save(user);
+         } else {
+           throw new WrongVerificationCode("Wrong code entered");
          }
+     } else {
+         throw new TokenExpired("Verification token expired. Request new token again");
      }
     }
 

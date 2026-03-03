@@ -1,18 +1,22 @@
 package com.project_management.project_management.service;
 
-import com.project_management.project_management.Dtos.CreateWorkSpaceDTO;
-import com.project_management.project_management.enums.Role;
+import com.project_management.project_management.Dtos.workspace.CreateWorkSpaceDTO;
+import com.project_management.project_management.Dtos.workspace.UpdateWorkSpace;
+import com.project_management.project_management.enums.Plan_Enums.plan;
+import com.project_management.project_management.enums.User_Enums.Role;
+import com.project_management.project_management.exception.user.workspace.MaximumWorkSpaceCreationLimitReached;
+import com.project_management.project_management.exception.user.workspace.WorkSpaceIsLocked;
+import com.project_management.project_management.exception.user.workspace.WorkSpaceNotFound;
+import com.project_management.project_management.model.Subscription;
 import com.project_management.project_management.model.User;
-import com.project_management.project_management.model.UserDetailsImpl;
 import com.project_management.project_management.model.WorkSpace;
 import com.project_management.project_management.repository.WorkSpaceRepository;
 import com.project_management.project_management.util.UserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Service
@@ -25,20 +29,45 @@ public class WorkSpaceService {
         this.workSpaceRepository = workSpaceRepository;
     }
 
-    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO, String userTimeZone){
+    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO) throws MaximumWorkSpaceCreationLimitReached {
      User currentUser = UserUtil.getCurrentUser();
-     if(currentUser.getRole().equals(Role.OWNER.toString())){
-         WorkSpace workSpace = WorkSpace.builder()
-                 .logo(createWorkSpaceDTO.logo() == null ? WORKSPACE_DUMMY_LOGO : "")
-                 .title(createWorkSpaceDTO.title())
-                 .description(createWorkSpaceDTO.description())
-                 .isLocked(false)
-                 .createdOn(LocalDateTime.now())
-                 .owner(currentUser)
-                 .key(UUID.randomUUID().toString().substring(0, 12).toUpperCase())
-                 .build();
+     if(currentUser.getRole().equals(Role.OWNER)){
+         Subscription userCurrentSubscription = currentUser.getSubscription();
+         if(userCurrentSubscription.getPlan().getPlan_name().toString().equals(plan.BASIC.toString())){
+             if(currentUser.getMyWorkSpaces().size() >= userCurrentSubscription.getPlan().getMax_work_space()){
+                 throw new MaximumWorkSpaceCreationLimitReached("Your maximum workspace creation limit has been reached. Please upgrade to premium plan to create more workspace");
+             }
+         }
+             WorkSpace workSpace = WorkSpace.builder()
+                     .logo(createWorkSpaceDTO.logo() == null ? WORKSPACE_DUMMY_LOGO : "")
+                     .title(createWorkSpaceDTO.title())
+                     .description(createWorkSpaceDTO.description())
+                     .isLocked(false)
+                     .createdOn(LocalDateTime.now(ZoneOffset.UTC))
+                     .last_updated(LocalDateTime.now(ZoneOffset.UTC))
+                     .owner(currentUser)
+                     .key(UUID.randomUUID().toString().substring(0, 12).toUpperCase())
+                     .build();
 
-         workSpaceRepository.save(workSpace);
+             workSpaceRepository.save(workSpace);
      }
+    }
+    public void deleteWorkSpace(String workspace_key){
+        workSpaceRepository.deleteByKey(workspace_key);
+    }
+
+    public void updateWorkSpace(UpdateWorkSpace updateWorkSpace) throws WorkSpaceNotFound, WorkSpaceIsLocked {
+       WorkSpace workSpace = workSpaceRepository.findOneByKey(updateWorkSpace.workspace_key())
+                .orElseThrow(() -> new WorkSpaceNotFound("Workspace not found. May be it doesn't exist or try again later"));
+       if(!workSpace.isLocked()) {
+           workSpace.setTitle(updateWorkSpace.title());
+           workSpace.setDescription(updateWorkSpace.description());
+           workSpace.setLogo(updateWorkSpace.logo() == null ? workSpace.getLogo() : updateWorkSpace.logo().toString());
+           workSpaceRepository.save(workSpace);
+       } else throw new WorkSpaceIsLocked("You cannot update this workspace because this workspace is locked.");
+    }
+    public void inviteUserToWorkSpace(String userEmail){
+        // send invitation email to user
+
     }
 }

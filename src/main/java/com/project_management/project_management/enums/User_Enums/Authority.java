@@ -1,4 +1,4 @@
-package com.project_management.project_management.enums;
+package com.project_management.project_management.enums.User_Enums;
 
 public enum Authority {
     CAN_CREATE_WORKSPACE,

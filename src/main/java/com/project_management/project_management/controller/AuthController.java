@@ -1,16 +1,13 @@
 package com.project_management.project_management.controller;
 
 import com.project_management.project_management.Dtos.*;
-import com.project_management.project_management.enums.TokenExpired;
-import com.project_management.project_management.exception.user.EmailAlreadyExists;
-import com.project_management.project_management.exception.user.IncorrectEmail;
-import com.project_management.project_management.exception.user.IncorrectPassword;
-import com.project_management.project_management.exception.user.InvalidSelectedRole;
+import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.service.AuthService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,7 +33,7 @@ public class AuthController {
       response.put("message", "Registration successful! We've sent a link to your email. If you don't see it in 5 minutes, click to resend.");
       response.put("status", 201);
       return ResponseEntity.created(null).body(response);
-     } catch (EmailAlreadyExists | InvalidSelectedRole e){
+     } catch (EmailAlreadyExists | InvalidSelectedRole | InvalidPlanSelected e){
          response.put("message", e.getMessage());
          response.put("status", 400);
          return ResponseEntity.badRequest().body(response);
@@ -61,8 +58,8 @@ public class AuthController {
          response.put("message", "Verification successful!");
          response.put("status", 200);
          return ResponseEntity.ok().body(response);
-     } catch (IncorrectEmail e) {
-         log.error("Invalid email for verification: {}", verifyDTO.email());
+     } catch (IncorrectEmail | WrongVerificationCode | TokenExpired e) {
+         log.error("Something went wrong from user side in verification: {}", e.getMessage());
          response.put("message", e.getMessage());
          response.put("status", 400);
          return ResponseEntity.badRequest().body(response);
@@ -158,13 +155,18 @@ public class AuthController {
             response.put("message", "Your password has been rested!");
             response.put("status", 200);
             return ResponseEntity.ok().body(response);
-        }catch (TokenExpired e){
-            log.error(e.getMessage(), resetToken);
+        } catch (TokenExpired | PasswordDoesNotMatch e){
+            log.error("Something went wrong from user side in reseting password: {}", e.getMessage());
             response.put("message",e.getMessage());
             response.put("status", 400);
             return ResponseEntity.badRequest().body(response);
+        } catch (TokenNotFound e){
+            log.error("Forget password token not found: {}", resetToken);
+            response.put("message","Forget password Link not found");
+            response.put("status", 404);
+            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
         } catch (RuntimeException e){
-            log.error("exception in reseting the password against provided token: {}", resetToken);
+            log.error("exception in reseting the password: {}", e.getMessage());
             response.put("message", "Internal Server error");
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);
