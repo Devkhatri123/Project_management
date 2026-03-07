@@ -1,11 +1,13 @@
 package com.project_management.project_management.controller;
 
 import com.project_management.project_management.Dtos.workspace.CreateWorkSpaceDTO;
+import com.project_management.project_management.Dtos.workspace.InvitationDTO;
 import com.project_management.project_management.Dtos.workspace.UpdateWorkSpace;
 import com.project_management.project_management.exception.user.workspace.MaximumWorkSpaceCreationLimitReached;
 import com.project_management.project_management.exception.user.workspace.WorkSpaceIsLocked;
 import com.project_management.project_management.exception.user.workspace.WorkSpaceNotFound;
 import com.project_management.project_management.service.WorkSpaceService;
+import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 
 import java.util.HashMap;
@@ -40,6 +42,7 @@ public class WorkSpaceController {
          response.put("status", 400);
          return ResponseEntity.badRequest().body(response);
      } catch (RuntimeException e) {
+            log.error("something went wrong in creating workspace: {}", e.getMessage());
             response.put("message", "Internal Server error");
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);
@@ -61,8 +64,13 @@ public class WorkSpaceController {
         } catch (WorkSpaceIsLocked e){
             log.error("workspace is locked, so this workspace can't updated of key:{}", updateWorkSpace.workspace_key());
             response.put("message", e.getMessage());
-            response.put("status", 404);
+            response.put("status", 400);
             return ResponseEntity.badRequest().body(response);
+        } catch (RuntimeException e) {
+            log.error("something went wrong in updating workspace: {}", e.getMessage());
+            response.put("message", "Internal Server error");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
         }
     }
     @DeleteMapping("/{workspace_key}")
@@ -74,9 +82,38 @@ public class WorkSpaceController {
             response.put("status", 200);
             return ResponseEntity.ok().body(response);
         } catch (RuntimeException e) {
+            log.error("Something went wrong in deleting workspace: {}", e.getMessage());
             response.put("message", "Something went wrong in deleting workspace. Try again");
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PostMapping("/invite")
+    public ResponseEntity<?> inviteUserToWorkSpaceThroughEmail(@Valid @RequestBody InvitationDTO invitationDTO) {
+        Map<String, Object> response = new HashMap<>();
+        try{
+        workSpaceService.inviteUserToWorkSpace(invitationDTO);
+        response.put("message", "Invitation sent successfully!");
+        response.put("status", 201);
+        return ResponseEntity.created(null).body(response);
+      } catch (WorkSpaceIsLocked e){
+        response.put("message", e.getMessage());
+        response.put("status", 400);
+        return ResponseEntity.badRequest().body(response);
+      } catch (WorkSpaceNotFound e) {
+        response.put("message", e.getMessage());
+        response.put("status", 404);
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+      } catch (MessagingException e) {
+        response.put("message", "Invitation cannot be sent, having issue internally in sending invitation email to user. Try again");
+        response.put("status", 500);
+        return ResponseEntity.internalServerError().body(response);
+      } catch (RuntimeException e) {
+        log.error("Something went wrong in inviting user to workspace: {}", e.getMessage());
+        response.put("message", "Internal server error. Try again");
+        response.put("status", 500);
+        return ResponseEntity.internalServerError().body(response);
         }
     }
 }

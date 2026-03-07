@@ -1,4 +1,4 @@
-package com.project_management.project_management.Dtos;
+package com.project_management.project_management.Dtos.User;
 
 import lombok.Getter;
 import lombok.Setter;

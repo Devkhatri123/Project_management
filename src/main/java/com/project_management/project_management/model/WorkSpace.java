@@ -20,9 +20,10 @@ public class WorkSpace {
     private String description;
     private LocalDateTime createdOn;
     private LocalDateTime last_updated;
-    @Column(unique = true)
+    @Column(unique = true, name = "workspace_key")
     private String key;
     private boolean isLocked;
+    @Column(length = 2048)
     private String logo;
     @ManyToOne
     @JoinColumn(name = "owner_id")
@@ -32,4 +33,6 @@ public class WorkSpace {
     private List<Project> my_projects;
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     private List<User> workspace_employees;
+    @OneToMany(mappedBy = "invitedToWorkspace", cascade = CascadeType.ALL)
+    private List<Invitation> invitedUsers;
 }

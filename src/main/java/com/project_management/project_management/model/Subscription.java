@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 @Getter
 public class Subscription {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String subscription_id;
     @OneToOne(cascade = CascadeType.ALL)
     private Plan plan;

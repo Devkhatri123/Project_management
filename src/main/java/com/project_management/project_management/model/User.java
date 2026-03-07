@@ -3,6 +3,8 @@ package com.project_management.project_management.model;
 import com.project_management.project_management.enums.User_Enums.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,14 +26,14 @@ public class User {
     private String profile_pic;
     private String title;
     private boolean is_enabled;
-    @NotBlank(message = "role cannot be empty")
+    @NotNull(message = "role cannot be empty")
     @Enumerated(EnumType.STRING)
     private Role role;
 
     @OneToOne(mappedBy = "user",cascade = {CascadeType.ALL}, orphanRemoval = true)
     private Verification verification;
     // created workspace
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<WorkSpace> myWorkSpaces;
     @OneToOne(mappedBy = "user",cascade = CascadeType.ALL, orphanRemoval = true)
     private ForgetPassword forgetPassword;

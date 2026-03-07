@@ -33,19 +33,19 @@ public class ExceptionHandler {
        return ResponseEntity.internalServerError().body(res);
     }
     @org.springframework.web.bind.annotation.ExceptionHandler(ExpiredJwtException.class)
-    @ResponseStatus(HttpStatus.FORBIDDEN)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ResponseEntity<?> expiredJwtException(ExpiredJwtException e){
         Map<String, Object> res = new HashMap<>();
         res.put("message", "Jwt expired. Login again");
-        res.put("status", 403);
-        return ResponseEntity.status(403).body(res);
+        res.put("status", 401);
+        return ResponseEntity.status(401).body(res);
     }
     @org.springframework.web.bind.annotation.ExceptionHandler(MalformedJwtException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ResponseEntity<?> MalformedJwtException(MalformedJwtException e){
         Map<String, Object> res = new HashMap<>();
         res.put("message", "Jwt token has been tempered. Login again");
-        res.put("status", 400);
-        return ResponseEntity.badRequest().body(res);
+        res.put("status", 401);
+        return new ResponseEntity<>(res,HttpStatus.UNAUTHORIZED);
     }
 }

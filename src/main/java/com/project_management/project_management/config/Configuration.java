@@ -37,6 +37,8 @@ public class Configuration {
         return http.csrf(csrf->csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth->{ auth
+                        .requestMatchers("/workspace/**").authenticated()
+                        .requestMatchers("/auth/me").authenticated()
                         .anyRequest().permitAll();
                 })
                 .sessionManagement(session ->

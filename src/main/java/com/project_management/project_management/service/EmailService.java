@@ -26,32 +26,34 @@ public class EmailService {
 
     public void registrationSuccessfulEmail(User user) throws MessagingException {
         ClassPathResource classPathResource = new ClassPathResource("/images/app_logo.png");
-        sendEmail(user, "Account created successfully! Here is your account verification code", emailRegistrationSuccessfulContent(user), classPathResource, "logo");
+        sendEmail(user.getEmail(), "Account created successfully! Here is your account verification code", emailRegistrationSuccessfulContent(user), classPathResource, "logo");
         log.info("Registration successful notification sent successfully!");
     }
+
     public void resendVerificationEmail(User user) throws MessagingException {
         ClassPathResource classPathResource = new ClassPathResource("/images/app_logo.png");
-        sendEmail(user, "Verification code", resendVerificationCodeBody(user), classPathResource, "logo");
+        sendEmail(user.getEmail(), "Verification code", resendVerificationCodeBody(user), classPathResource, "logo");
         log.info("Verification code email resent successfully!");
     }
+
     public void ForgetPasswordLink(User user) throws MessagingException {
         ClassPathResource classPathResource = new ClassPathResource("/images/app_logo.png");
-        sendEmail(user, "Forget Password link", forgetPasswordLink(user), classPathResource, "logo");
+        sendEmail(user.getEmail(), "Forget Password link", forgetPasswordLink(user), classPathResource, "logo");
         log.info("Forget password link notification sent successfully!");
     }
 
     public void PasswordChangedSuccessfully(User user) throws MessagingException {
         ClassPathResource classPathResource = new ClassPathResource("/images/app_logo.png");
-        sendEmail(user, "Password changed successfully!", passwordChangedSuccessfullyBody(user), classPathResource, "logo");
+        sendEmail(user.getEmail(), "Password changed successfully!", passwordChangedSuccessfullyBody(user), classPathResource, "logo");
         log.info("Password changed notification sent successfully!");
     }
 
-    private void sendEmail(User user, String subject, String body, ClassPathResource classPathResource, String imgName) throws MessagingException {
+    private void sendEmail(String toEmail, String subject, String body, ClassPathResource classPathResource, String imgName) throws MessagingException {
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
         helper.setText(body, true);
         helper.setFrom(from);
-        helper.setTo(user.getEmail());
+        helper.setTo(toEmail);
         helper.setSubject(subject);
         helper.addInline(imgName, classPathResource);
 

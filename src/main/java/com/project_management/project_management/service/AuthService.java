@@ -1,12 +1,15 @@
 package com.project_management.project_management.service;
 import com.project_management.project_management.Dtos.*;
+import com.project_management.project_management.Dtos.User.ForgetPasswordDTO;
+import com.project_management.project_management.Dtos.User.LoginRequest;
+import com.project_management.project_management.Dtos.User.RegisterRequestDTO;
+import com.project_management.project_management.Dtos.User.UserDTO;
 import com.project_management.project_management.enums.User_Enums.Authority;
 import com.project_management.project_management.enums.User_Enums.Role;
 import com.project_management.project_management.exception.user.TokenExpired;
 import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ForgetPasswordRepo;
-import com.project_management.project_management.repository.PlanRepository;
 import com.project_management.project_management.repository.UserRepository;
 import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
@@ -17,9 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.*;
 
@@ -48,8 +49,7 @@ public class AuthService {
         this.subscriptionService = subscriptionService;
     }
 
-//    @Transactional(rollbackOn = {EmailAlreadyExists.class, MessagingException.class, InvalidSelectedRole.class, RuntimeException.class})
-    public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected {
+      public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected {
         if(userRepository.existsByEmail(registerRequestDTO.email())){
             throw new EmailAlreadyExists("Email is already taken");
         }
@@ -89,8 +89,11 @@ public class AuthService {
     }
 
     @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
-    public Map<String, Object> refreshToken(String token,String timeZone) throws TokenExpired {
+    public Map<String, Object> refreshJwtToken(String token) throws TokenExpired, TokenNotFound {
        RefreshToken refreshToken = refreshTokenService.findRefreshToken(token);
+       if(refreshToken == null){
+           throw new TokenNotFound("The refresh token is invalid or expired.");
+       }
        User user = refreshToken.getUser();
 
        if(!refreshToken.getExpiresOn().isBefore(LocalDateTime.now(ZoneOffset.UTC))){
@@ -100,7 +103,7 @@ public class AuthService {
            return createJwtResponse(user, newRefreshToken.getToken(), newRefreshToken.getExpiresOn());
        }
        log.info("Refresh token expired");
-       throw new TokenExpired("Please sign in again");
+       throw new TokenExpired("The refresh token is expired");
     }
     private Map<String, Object> createJwtResponse(User user,String refreshToken,LocalDateTime refreshTokenExpiry){
         Map<String, Object> response = new HashMap<>();

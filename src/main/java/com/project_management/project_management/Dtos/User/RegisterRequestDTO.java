@@ -1,4 +1,4 @@
-package com.project_management.project_management.Dtos;
+package com.project_management.project_management.Dtos.User;
 
 import jakarta.validation.constraints.NotBlank;
 

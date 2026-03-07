@@ -1,6 +1,9 @@
 package com.project_management.project_management.controller;
 
 import com.project_management.project_management.Dtos.*;
+import com.project_management.project_management.Dtos.User.ForgetPasswordDTO;
+import com.project_management.project_management.Dtos.User.LoginRequest;
+import com.project_management.project_management.Dtos.User.RegisterRequestDTO;
 import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.service.AuthService;
 import jakarta.mail.MessagingException;
@@ -105,16 +108,17 @@ public class AuthController {
         }
     }
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshJwtToken(@RequestBody String token,
-                                @RequestHeader(name = "time_zone") String timeZone){
+    public ResponseEntity<?> refreshJwtToken(@RequestParam String token){
         Map<String, Object> response = new HashMap<>();
         try{
-            response = authService.refreshToken(token, timeZone);
+            response = authService.refreshJwtToken(token);
             response.put("status", 200);
             return ResponseEntity.ok().body(response);
-        }catch (TokenExpired e){
-            ErrorResponse errorResponse = new ErrorResponse(e.getMessage(), 400);
-            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (TokenExpired | TokenNotFound e){
+            log.error("Unauthorized refresh token: {}", e.getMessage());
+            response.put("message", e.getMessage());
+            response.put("status", 401);
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         } catch (RuntimeException e){
             log.error("exception in refreshing token: {}", e.getMessage());
             response.put("message", "Internal Server error");
