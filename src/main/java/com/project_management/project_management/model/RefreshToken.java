@@ -15,11 +15,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class RefreshToken {
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "refresh_token_id")
+    private String refreshToken_id;
     private String token;
     private LocalDateTime expiresOn;
     private boolean isExpired;
-    @OneToOne
-    @MapsId
+    @OneToOne(mappedBy = "refreshToken")
     private User user;
 }

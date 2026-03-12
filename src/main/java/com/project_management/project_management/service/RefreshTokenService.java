@@ -20,9 +20,8 @@ public class RefreshTokenService {
     }
     public RefreshToken createRefreshToken(User user){
        return RefreshToken.builder()
-                .token(UUID.randomUUID().toString().substring(0, 8))
+                .token(UUID.randomUUID().toString().substring(0, 12))
                 .isExpired(false)
-                .id(user.getId())
                 .user(user)
                 .expiresOn(LocalDateTime.now().plusDays(1))
                 .build();

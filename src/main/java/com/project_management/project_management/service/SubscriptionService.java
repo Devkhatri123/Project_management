@@ -2,7 +2,7 @@ package com.project_management.project_management.service;
 
 import com.project_management.project_management.enums.Plan_Enums.SubscriptionStatus;
 import com.project_management.project_management.enums.Plan_Enums.plan;
-import com.project_management.project_management.exception.user.InvalidPlanSelected;
+import com.project_management.project_management.exception.InvalidPlanSelected;
 import com.project_management.project_management.model.Plan;
 import com.project_management.project_management.model.Subscription;
 import com.project_management.project_management.repository.PlanRepository;

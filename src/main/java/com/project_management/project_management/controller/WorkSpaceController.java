@@ -3,9 +3,9 @@ package com.project_management.project_management.controller;
 import com.project_management.project_management.Dtos.workspace.CreateWorkSpaceDTO;
 import com.project_management.project_management.Dtos.workspace.InvitationDTO;
 import com.project_management.project_management.Dtos.workspace.UpdateWorkSpace;
-import com.project_management.project_management.exception.user.workspace.MaximumWorkSpaceCreationLimitReached;
-import com.project_management.project_management.exception.user.workspace.WorkSpaceIsLocked;
-import com.project_management.project_management.exception.user.workspace.WorkSpaceNotFound;
+import com.project_management.project_management.exception.Token.TokenExpired;
+import com.project_management.project_management.exception.user.UserNotFound;
+import com.project_management.project_management.exception.workspace.*;
 import com.project_management.project_management.service.WorkSpaceService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
@@ -95,19 +95,33 @@ public class WorkSpaceController {
         try{
         workSpaceService.inviteUserToWorkSpace(invitationDTO);
         response.put("message", "Invitation sent successfully!");
+        log.info("Invitation sent successfully! to user: {}", invitationDTO.userToBeInvitedEmail());
         response.put("status", 201);
         return ResponseEntity.created(null).body(response);
-      } catch (WorkSpaceIsLocked e){
+      } catch (WorkSpaceIsLocked | MaximumWorkSpaceEmployeesLimitHasBeenReached e){
         response.put("message", e.getMessage());
         response.put("status", 400);
+        log.error("Invitation cannot be sent because: {}", e.getMessage());
         return ResponseEntity.badRequest().body(response);
+      } catch (UserHasAlreadyJoinedTheWorkSpace e){
+        response.put("message", e.getMessage());
+        response.put("status", 400);
+        log.error("User of email: {} has already joined the workspace", invitationDTO.userToBeInvitedEmail());
+        return ResponseEntity.badRequest().body(response);
+      } catch (UserNotFound e){
+       log.error("something went wrong in finding user of email: {}, from database", invitationDTO.userToBeInvitedEmail());
+       response.put("message", e.getMessage());
+       response.put("status", 404);
+       return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
       } catch (WorkSpaceNotFound e) {
         response.put("message", e.getMessage());
         response.put("status", 404);
+        log.error("Invitation cannot be sent because workspace not found of key: {}", invitationDTO.workspace_key());
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
       } catch (MessagingException e) {
         response.put("message", "Invitation cannot be sent, having issue internally in sending invitation email to user. Try again");
         response.put("status", 500);
+        log.error("Internal server error in sending email to user of email: {} and error message is: {}", invitationDTO.userToBeInvitedEmail(), e.getMessage());
         return ResponseEntity.internalServerError().body(response);
       } catch (RuntimeException e) {
         log.error("Something went wrong in inviting user to workspace: {}", e.getMessage());
@@ -116,4 +130,31 @@ public class WorkSpaceController {
         return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @PostMapping("/{work_space_key}/join/{userToBeJoinedEmail}/invitation/{invitation_link}")
+    public ResponseEntity<?> joinWorkSpaceFromInvitationLink(@PathVariable String work_space_key, @PathVariable String userToBeJoinedEmail, @PathVariable String invitation_link){
+       Map<String, Object> response = new HashMap<>();
+        try {
+           workSpaceService.joinWorkSpaceFromInvitationLink(work_space_key, userToBeJoinedEmail, invitation_link);
+           response.put("message", "Workspace joined successfully!");
+           response.put("status", 200);
+           log.info("Workspace joined successfully! of email: {}", userToBeJoinedEmail);
+           return ResponseEntity.ok().body(response);
+        } catch (WorkSpaceNotFound | UserNotFound e){
+           log.error("Error in joining workspace because resource not found: {}", e.getMessage());
+           response.put("message", e.getMessage());
+           response.put("status", 404);
+           return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+       } catch (MaximumWorkSpaceEmployeesLimitHasBeenReached | WorkSpaceInvitationLinkNotFound | TokenExpired | UserHasAlreadyJoinedTheWorkSpace e) {
+            log.error("Error in joining workspace: {}", e.getMessage());
+            response.put("message", e.getMessage());
+            response.put("status", 400);
+            return ResponseEntity.badRequest().body(response);
+       } catch (RuntimeException e) {
+            log.error("Internal server error in joining workspace: {}", e.getMessage());
+            response.put("message", "Internal Server error. Try again");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
+       }
+       }
 }

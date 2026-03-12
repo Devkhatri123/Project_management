@@ -1,4 +1,4 @@
-package com.project_management.project_management.exception.user;
+package com.project_management.project_management.exception.Token;
 
 public class TokenNotFound extends Exception {
     public TokenNotFound(String message) {

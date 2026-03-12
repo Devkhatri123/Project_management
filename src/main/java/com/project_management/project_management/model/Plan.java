@@ -18,7 +18,7 @@ public class Plan {
     private String product_id;
     @Enumerated(EnumType.STRING)
     @Column(unique = true)
-    private plan planName; // BASIC, PREMIUM
+    private plan planName;
     private Integer max_work_space;
     private Integer max_members_per_workspace;
     private Integer max_projects_per_workspace;
@@ -30,5 +30,5 @@ public class Plan {
     private CurrencyCode currencyCode;
     private int durationInDays;
     @Enumerated(EnumType.STRING)
-    private SubscriptionType subscriptionType;  // MONTHLY, YEARLY
+    private SubscriptionType subscriptionType;
 }

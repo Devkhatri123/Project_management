@@ -22,6 +22,7 @@ public class Invitation {
     @ManyToOne
     @JoinColumn(name = "invited_workspace_id")
     private WorkSpace invitedToWorkspace;
+    @Column(unique = true)
     private String link;
     private LocalDateTime expiresOn;
     @Enumerated(EnumType.STRING)

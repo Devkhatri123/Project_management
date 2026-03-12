@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -20,6 +21,7 @@ public class User {
     @NotBlank(message = "name cannot be empty")
     private String name;
     @NotBlank(message = "email cannot be empty")
+    @Column(unique = true)
     private String email;
     @NotBlank(message = "password cannot be empty")
     private String password;
@@ -30,19 +32,32 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
-    @OneToOne(mappedBy = "user",cascade = {CascadeType.ALL}, orphanRemoval = true)
+    @OneToOne(cascade = {CascadeType.ALL}, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinColumn(name = "verification_id")
     private Verification verification;
     // created workspace
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<WorkSpace> myWorkSpaces;
-    @OneToOne(mappedBy = "user",cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true,  fetch = FetchType.LAZY)
     private ForgetPassword forgetPassword;
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private RefreshToken refreshToken;
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id", referencedColumnName = "subscription_id")
     private Subscription subscription;
     // Joined workspace
     @ManyToMany
     private List<WorkSpace> joined_workspace;
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(id, user.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
 }

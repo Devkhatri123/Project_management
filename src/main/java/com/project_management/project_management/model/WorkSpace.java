@@ -31,7 +31,7 @@ public class WorkSpace {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Project> my_projects;
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<User> workspace_employees;
     @OneToMany(mappedBy = "invitedToWorkspace", cascade = CascadeType.ALL)
     private List<Invitation> invitedUsers;

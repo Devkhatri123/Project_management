@@ -1,6 +1,5 @@
 package com.project_management.project_management.jwt;
 
-import com.project_management.project_management.exception.user.ExceptionHandler;
 import com.project_management.project_management.model.UserDetailsImpl;
 import com.project_management.project_management.service.JwtService;
 import com.project_management.project_management.service.UserDetailsServiceImpl;

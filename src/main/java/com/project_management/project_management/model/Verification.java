@@ -15,11 +15,11 @@ import java.time.LocalDateTime;
 @Getter
 public class Verification {
     @Id
-    private String user_id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String verification_id;
     private int otpCode;
     private LocalDateTime expiresAt;
     private boolean isExpired;
-    @OneToOne
-    @MapsId
+    @OneToOne(mappedBy = "verification")
     private User user;
 }

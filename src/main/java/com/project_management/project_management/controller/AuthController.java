@@ -4,16 +4,21 @@ import com.project_management.project_management.Dtos.*;
 import com.project_management.project_management.Dtos.User.ForgetPasswordDTO;
 import com.project_management.project_management.Dtos.User.LoginRequest;
 import com.project_management.project_management.Dtos.User.RegisterRequestDTO;
+import com.project_management.project_management.exception.InvalidPlanSelected;
+import com.project_management.project_management.exception.Token.TokenExpired;
+import com.project_management.project_management.exception.Token.TokenNotFound;
 import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.service.AuthService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,6 +42,7 @@ public class AuthController {
       response.put("status", 201);
       return ResponseEntity.created(null).body(response);
      } catch (EmailAlreadyExists | InvalidSelectedRole | InvalidPlanSelected e){
+         log.error("Error in registering the account: {} ", e.getMessage());
          response.put("message", e.getMessage());
          response.put("status", 400);
          return ResponseEntity.badRequest().body(response);
@@ -45,9 +51,19 @@ public class AuthController {
          response.put("message", "Internal Server error. Account can't be created. Try again");
          response.put("status", 500);
          return ResponseEntity.internalServerError().body(response);
+     } catch (DataIntegrityViolationException ex){
+         String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
+         // user.unique_email
+         if(rootMsg.contains("user.unique_email")) {
+             response.put("message", "Email is already taken. Use another unique email to create account");
+         } else {
+             response.put("message", "something went wrong");
+         }
+         response.put("status", 409);
+         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
      } catch (RuntimeException e){
-         log.error("exception in registration: {}", e.getMessage());
-         response.put("message", "Internal Server error");
+          log.error("exception in registration: {}", e.getMessage());
+         response.put("message", "Internal Server error in registration");
          response.put("status", 500);
          return ResponseEntity.internalServerError().body(response);
      }

@@ -14,12 +14,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ForgetPassword {
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String forgetPassword_id;
     @Column(unique = true)
     private String token;
     private LocalDateTime expiry;
     private boolean is_Active;
-    @OneToOne
-    @MapsId
+    @OneToOne(mappedBy = "forgetPassword")
     private User user;
 }

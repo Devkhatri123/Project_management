@@ -6,7 +6,9 @@ import com.project_management.project_management.Dtos.User.RegisterRequestDTO;
 import com.project_management.project_management.Dtos.User.UserDTO;
 import com.project_management.project_management.enums.User_Enums.Authority;
 import com.project_management.project_management.enums.User_Enums.Role;
-import com.project_management.project_management.exception.user.TokenExpired;
+import com.project_management.project_management.exception.InvalidPlanSelected;
+import com.project_management.project_management.exception.Token.TokenExpired;
+import com.project_management.project_management.exception.Token.TokenNotFound;
 import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ForgetPasswordRepo;
@@ -17,9 +19,11 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -49,7 +53,8 @@ public class AuthService {
         this.subscriptionService = subscriptionService;
     }
 
-      public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected {
+      @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
+      public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected, DataIntegrityViolationException {
         if(userRepository.existsByEmail(registerRequestDTO.email())){
             throw new EmailAlreadyExists("Email is already taken");
         }
@@ -81,7 +86,6 @@ public class AuthService {
     private Verification createVerification(User user){
         return Verification.builder()
                  .user(user)
-                 .user_id(user.getId())
                  .isExpired(false)
                  .otpCode(new Random().nextInt(100000,999999))
                  .expiresAt(LocalDateTime.now().plusMinutes(3))
@@ -167,7 +171,6 @@ public class AuthService {
     private ForgetPassword createForgetPasswordToken(User user){
         return ForgetPassword.builder()
                 .user(user)
-                .id(user.getId())
                 .token(UUID.randomUUID().toString().substring(0,10))
                 .expiry(LocalDateTime.now(ZoneOffset.UTC).plusMinutes(3))
                 .is_Active(true)
@@ -202,5 +205,12 @@ public class AuthService {
            userRepository.save(user);
            emailService.ForgetPasswordLink(user);
        }
+    }
+    public User getUserByEmail(String email) throws UserNotFound {
+       return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFound("Invalid email. User not found of this email."));
+    }
+    public boolean existByEmail(String email){
+        return userRepository.existsByEmail(email);
     }
 }

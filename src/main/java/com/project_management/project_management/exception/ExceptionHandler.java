@@ -1,13 +1,16 @@
-package com.project_management.project_management.exception.user;
+package com.project_management.project_management.exception;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
+import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,14 +27,22 @@ public class ExceptionHandler {
         });
         return res;
     }
-    @org.springframework.web.bind.annotation.ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ResponseEntity<?> handleException(Exception e){
-       Map<String, Object> res = new HashMap<>();
-       res.put("message", "Internal Server error");
-       res.put("status", 500);
-       return ResponseEntity.internalServerError().body(res);
-    }
+
+//    @org.springframework.web.bind.annotation.ExceptionHandler(DataIntegrityViolationException.class)
+//    @ResponseStatus(HttpStatus.BAD_REQUEST)
+//    public ResponseEntity<?> handleConstraintViolationException(DataIntegrityViolationException ex){
+//        Map<String, Object> res = new HashMap<>();
+//        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
+//        System.out.println("my message from controller advice:"+rootMsg);
+//        // user.unique_email
+//        if(rootMsg.contains("user.unique_email")) {
+//            res.put("message", "user with this email already exist in data integrity exception");
+//        } else {
+//            res.put("message", "Database constraint error");
+//        }
+//        res.put("status", 400);
+//        return ResponseEntity.badRequest().body(res);
+//    }
     @org.springframework.web.bind.annotation.ExceptionHandler(ExpiredJwtException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ResponseEntity<?> expiredJwtException(ExpiredJwtException e){
