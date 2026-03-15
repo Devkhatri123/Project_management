@@ -10,13 +10,17 @@ import com.project_management.project_management.exception.Token.TokenNotFound;
 import com.project_management.project_management.exception.user.*;
 import com.project_management.project_management.service.AuthService;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.HashMap;
@@ -27,21 +31,24 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class AuthController {
     private final AuthService authService;
+    @Qualifier("handlerExceptionResolver")
+    private final HandlerExceptionResolver resolver;
 
     @Autowired
-    public AuthController(final AuthService authService){
+    public AuthController(final AuthService authService, @Qualifier("handlerExceptionResolver") final HandlerExceptionResolver exceptionHandler){
         this.authService = authService;
+        this.resolver = exceptionHandler;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO registerRequestDTO){
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDTO registerRequestDTO, HttpServletResponse httpServletResponse, HttpServletRequest request){
      Map<String, Object> response = new HashMap<>();
      try{
       authService.register(registerRequestDTO);
       response.put("message", "Registration successful! We've sent a link to your email. If you don't see it in 5 minutes, click to resend.");
       response.put("status", 201);
       return ResponseEntity.created(null).body(response);
-     } catch (EmailAlreadyExists | InvalidSelectedRole | InvalidPlanSelected e){
+     } catch (EmailAlreadyExists | InvalidSelectedRole | InvalidPlanSelected | UserNameAlreadyTaken e){
          log.error("Error in registering the account: {} ", e.getMessage());
          response.put("message", e.getMessage());
          response.put("status", 400);
@@ -52,17 +59,11 @@ public class AuthController {
          response.put("status", 500);
          return ResponseEntity.internalServerError().body(response);
      } catch (DataIntegrityViolationException ex){
-         String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
-         // user.unique_email
-         if(rootMsg.contains("user.unique_email")) {
-             response.put("message", "Email is already taken. Use another unique email to create account");
-         } else {
-             response.put("message", "something went wrong");
-         }
-         response.put("status", 409);
-         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+         resolver.resolveException(request, httpServletResponse, null, ex);
+         return null;
      } catch (RuntimeException e){
-          log.error("exception in registration: {}", e.getMessage());
+         e.printStackTrace();
+         log.error("exception in registration: {}", e.getMessage());
          response.put("message", "Internal Server error in registration");
          response.put("status", 500);
          return ResponseEntity.internalServerError().body(response);
@@ -83,6 +84,7 @@ public class AuthController {
          response.put("status", 400);
          return ResponseEntity.badRequest().body(response);
      } catch (RuntimeException e){
+         e.printStackTrace();
          log.error("exception in email verification: {}", e.getMessage());
          response.put("message", "Internal Server error. Try again");
          response.put("status", 500);

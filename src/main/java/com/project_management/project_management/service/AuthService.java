@@ -6,6 +6,7 @@ import com.project_management.project_management.Dtos.User.RegisterRequestDTO;
 import com.project_management.project_management.Dtos.User.UserDTO;
 import com.project_management.project_management.enums.User_Enums.Authority;
 import com.project_management.project_management.enums.User_Enums.Role;
+import com.project_management.project_management.event.UserCreatedEvent;
 import com.project_management.project_management.exception.InvalidPlanSelected;
 import com.project_management.project_management.exception.Token.TokenExpired;
 import com.project_management.project_management.exception.Token.TokenNotFound;
@@ -19,11 +20,11 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -39,10 +40,12 @@ public class AuthService {
     private final ForgetPasswordRepo forgetPasswordRepo;
     private final EmailService emailService;
     private final SubscriptionService subscriptionService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public AuthService(final UserRepository userRepository, final ModelMapper modelMapper, final BCryptPasswordEncoder bCryptPasswordEncoder, final JwtService jwtService, final RefreshTokenService refreshTokenService,
-                       final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService, final SubscriptionService subscriptionService){
+                       final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService, final SubscriptionService subscriptionService,
+                       final ApplicationEventPublisher applicationEventPublisher){
         this.userRepository = userRepository;
         this.passwordEncoder = bCryptPasswordEncoder;
         this.modelMapper = modelMapper;
@@ -51,12 +54,15 @@ public class AuthService {
         this.forgetPasswordRepo = forgetPasswordRepo;
         this.emailService = emailService;
         this.subscriptionService = subscriptionService;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
-      @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
-      public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected, DataIntegrityViolationException {
+      // @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
+      public void register(RegisterRequestDTO registerRequestDTO) throws EmailAlreadyExists, InvalidSelectedRole, MessagingException, InvalidPlanSelected, DataIntegrityViolationException, UserNameAlreadyTaken {
         if(userRepository.existsByEmail(registerRequestDTO.email())){
             throw new EmailAlreadyExists("Email is already taken");
+        } else if (userRepository.existsByName(registerRequestDTO.name())){
+             throw new UserNameAlreadyTaken("username is already taken. Choose other username");
         }
         User user = modelMapper.map(registerRequestDTO, User.class);
         user.setRole(registerRequestDTO.role().equals("Company") ? Role.OWNER : Role.WORKER);
@@ -68,7 +74,7 @@ public class AuthService {
             user.setSubscription(subscriptionService.createSubscription("BASIC"));
             user = userRepository.save(user);
             // Send account creation successful email
-            emailService.registrationSuccessfulEmail(user);
+            applicationEventPublisher.publishEvent(new UserCreatedEvent(user));
     }
     public Map<String, Object> login(LoginRequest loginRequest) throws IncorrectEmail, IncorrectPassword {
         User user = userRepository.findByEmail(loginRequest.email())
@@ -88,7 +94,7 @@ public class AuthService {
                  .user(user)
                  .isExpired(false)
                  .otpCode(new Random().nextInt(100000,999999))
-                 .expiresAt(LocalDateTime.now().plusMinutes(3))
+                 .expiresAt(LocalDateTime.now(ZoneOffset.UTC).plusMinutes(3))
                  .build();
     }
 

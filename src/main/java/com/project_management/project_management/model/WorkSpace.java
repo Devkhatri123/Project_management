@@ -25,14 +25,17 @@ public class WorkSpace {
     private boolean isLocked;
     @Column(length = 2048)
     private String logo;
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id")
     private User owner;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "workSpace", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Project> my_projects;
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinTable(name = "workspace_employees",
+    joinColumns = {@JoinColumn(name = "workspace_id", referencedColumnName = "workSpace_id")},
+    inverseJoinColumns = {@JoinColumn(name = "user_id", referencedColumnName = "id")})
     private List<User> workspace_employees;
-    @OneToMany(mappedBy = "invitedToWorkspace", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "invitedToWorkspace", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Invitation> invitedUsers;
 }

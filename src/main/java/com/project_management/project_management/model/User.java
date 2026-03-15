@@ -3,8 +3,8 @@ package com.project_management.project_management.model;
 import com.project_management.project_management.enums.User_Enums.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,11 +19,13 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     @NotBlank(message = "name cannot be empty")
+    @Column(unique = true)
     private String name;
     @NotBlank(message = "email cannot be empty")
     @Column(unique = true)
     private String email;
     @NotBlank(message = "password cannot be empty")
+    // @Size(min = 8, max = 16, message = "password should be of minimum 8 characters and maximum 16 characters")
     private String password;
     private String profile_pic;
     private String title;
@@ -46,8 +48,16 @@ public class User {
     @JoinColumn(name = "subscription_id", referencedColumnName = "subscription_id")
     private Subscription subscription;
     // Joined workspace
-    @ManyToMany
+    @ManyToMany(mappedBy = "workspace_employees")
     private List<WorkSpace> joined_workspace;
+
+    // Task Data
+    @OneToMany(mappedBy = "assignee", cascade = CascadeType.ALL)
+    private List<Task> assigned_Tasks;
+    @ManyToMany(mappedBy = "project_assignees")
+    private List<Project> joined_projects;
+    @OneToMany(mappedBy = "createdBy", cascade = CascadeType.ALL)
+    public List<Task> my_created_tasks;
 
     @Override
     public boolean equals(Object o) {

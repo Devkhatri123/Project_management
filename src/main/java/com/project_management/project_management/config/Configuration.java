@@ -39,6 +39,7 @@ public class Configuration {
                 .authorizeHttpRequests(auth->{ auth
                         .requestMatchers("/workspace/**").authenticated()
                         .requestMatchers("/auth/me").authenticated()
+                        .requestMatchers("/workspace/project/**").authenticated()
                         .anyRequest().permitAll();
                 })
                 .sessionManagement(session ->

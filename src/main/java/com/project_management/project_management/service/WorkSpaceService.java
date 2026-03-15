@@ -6,6 +6,7 @@ import com.project_management.project_management.Dtos.workspace.UpdateWorkSpace;
 import com.project_management.project_management.enums.Plan_Enums.plan;
 import com.project_management.project_management.enums.User_Enums.Role;
 import com.project_management.project_management.enums.WorkSpace_Enums.WorkSpaceJoin_Status;
+import com.project_management.project_management.event.JoinInvitationEvent;
 import com.project_management.project_management.exception.Token.TokenExpired;
 import com.project_management.project_management.exception.user.UserNotFound;
 import com.project_management.project_management.exception.workspace.*;
@@ -20,6 +21,7 @@ import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -35,16 +37,18 @@ public class WorkSpaceService {
     private final InvitationRepo invitationRepo;
     private final InvitationService invitationService;
     private final AuthService authService;
+    private final ApplicationEventPublisher applicationEventPublisher;
     @Autowired
     public WorkSpaceService(final WorkSpaceRepository workSpaceRepository,
                             final WorkSpaceEmailService workSpaceEmailService,
                             final InvitationRepo invitationRepo, final InvitationService invitationService,
-                            final AuthService authService){
+                            final AuthService authService, final ApplicationEventPublisher applicationEventPublisher){
         this.workSpaceRepository = workSpaceRepository;
         this.workSpaceEmailService = workSpaceEmailService;
         this.invitationRepo = invitationRepo;
         this.invitationService = invitationService;
         this.authService = authService;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO) throws MaximumWorkSpaceCreationLimitReached {
@@ -65,7 +69,7 @@ public class WorkSpaceService {
                      .createdOn(LocalDateTime.now(ZoneOffset.UTC))
                      .last_updated(LocalDateTime.now(ZoneOffset.UTC))
                      .owner(currentUser)
-                     .key(UUID.randomUUID().toString().substring(0, 12).toUpperCase())
+                     .key("#"+UUID.randomUUID().toString().substring(0, 12).replace("-", "").toUpperCase())
                      .build();
 
              workSpaceRepository.save(workSpace);
@@ -86,9 +90,9 @@ public class WorkSpaceService {
        } else throw new WorkSpaceIsLocked("You cannot update this workspace, because this workspace is locked.");
     }
 
+    @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
     public void inviteUserToWorkSpace(InvitationDTO invitationDTO) throws WorkSpaceNotFound, MessagingException, WorkSpaceIsLocked, UserNotFound, UserHasAlreadyJoinedTheWorkSpace, MaximumWorkSpaceEmployeesLimitHasBeenReached {
-       // send invitation email to user
-       WorkSpace workSpace = workSpaceRepository.findOneByKey(invitationDTO.workspace_key())
+       WorkSpace workSpace = workSpaceRepository.findWithJoinedEmployees(invitationDTO.workspace_key())
         .orElseThrow(() -> new WorkSpaceNotFound("Invalid key. Workspace not found"));
 
         if(workSpace.isLocked()){
@@ -107,16 +111,11 @@ public class WorkSpaceService {
                 throw new UserHasAlreadyJoinedTheWorkSpace("This user is already in your workspace");
             }
         }
-       Invitation invitation = Invitation.builder()
-                .invitedToWorkspace(workSpace)
-                .link(UUID.randomUUID().toString().substring(0,10))
-                .status(WorkSpaceJoin_Status.PENDING)
-                .email(invitationDTO.userToBeInvitedEmail())
-                .expiresOn(LocalDateTime.now(ZoneOffset.UTC).plusDays(1))
-                .build();
+        Invitation invitation = invitationService.createInvitation(invitationDTO.userToBeInvitedEmail(), workSpace);
 
-        invitationRepo.save(invitation);
-        workSpaceEmailService.sendWorkSpaceJoinInvitationEmail(invitation);
+        invitation = invitationRepo.save(invitation);
+        applicationEventPublisher.publishEvent(new JoinInvitationEvent(invitation));
+        // workSpaceEmailService.sendWorkSpaceJoinInvitationEmail(invitation);
     }
 
     @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
@@ -128,7 +127,7 @@ public class WorkSpaceService {
        }
 
        // Workspace where user will be added to
-       WorkSpace workSpaceToBeJoined = workSpaceRepository.findOneByKey(work_space_key)
+       WorkSpace workSpaceToBeJoined = workSpaceRepository.findWithJoinedEmployees(work_space_key)
                .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace key. Workspace not found. Try again"));
 
         // current workspace joined employees list
@@ -158,5 +157,14 @@ public class WorkSpaceService {
        // Delete invitation link from database
        invitationService.deleteInvitation(invitationRequest.getId());
 
+    }
+    public WorkSpace getWorkSpaceBy_WorkSpace_Key(String workspace_key) throws WorkSpaceNotFound {
+       return workSpaceRepository.findOneByKey(workspace_key)
+               .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace key. Workspace not found"));
+    }
+
+    public WorkSpace getWorkSpaceWithProjectByWorkSpaceKey(String workSpaceKey) throws WorkSpaceNotFound {
+       return workSpaceRepository.findWithCreatedProjects(workSpaceKey)
+               .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace key. Workspace not found"));
     }
 }

@@ -28,21 +28,22 @@ public class ExceptionHandler {
         return res;
     }
 
-//    @org.springframework.web.bind.annotation.ExceptionHandler(DataIntegrityViolationException.class)
-//    @ResponseStatus(HttpStatus.BAD_REQUEST)
-//    public ResponseEntity<?> handleConstraintViolationException(DataIntegrityViolationException ex){
-//        Map<String, Object> res = new HashMap<>();
-//        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
-//        System.out.println("my message from controller advice:"+rootMsg);
-//        // user.unique_email
-//        if(rootMsg.contains("user.unique_email")) {
-//            res.put("message", "user with this email already exist in data integrity exception");
-//        } else {
-//            res.put("message", "Database constraint error");
-//        }
-//        res.put("status", 400);
-//        return ResponseEntity.badRequest().body(res);
-//    }
+    @org.springframework.web.bind.annotation.ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ResponseEntity<?> handleConstraintViolationException(DataIntegrityViolationException ex){
+        Map<String, Object> res = new HashMap<>();
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : "";
+        // unique_username
+        if(rootMsg.contains("user.unique_email")) {
+            res.put("message", "user with this email already exist");
+        } else if(rootMsg.contains("user.unique_username")){
+            res.put("message", "user with this username already exist. Choose other username");
+        } else {
+            res.put("message", "Database constraint error");
+        }
+        res.put("status", 409);
+        return ResponseEntity.badRequest().body(res);
+    }
     @org.springframework.web.bind.annotation.ExceptionHandler(ExpiredJwtException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ResponseEntity<?> expiredJwtException(ExpiredJwtException e){
