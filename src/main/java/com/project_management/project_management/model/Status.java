@@ -1,8 +1,10 @@
 package com.project_management.project_management.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -12,14 +14,16 @@ import java.util.Set;
 public class Status {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @JsonIgnore
     private String status_id;
     @Column(unique = true)
     private String status_name;
     private String status_color;
     private String status_bg;
 
-    @OneToOne
-    private Task task;
+    @OneToMany
+    @JsonIgnore
+    private List<Task> task;
 
     @Override
     public boolean equals(Object o) {

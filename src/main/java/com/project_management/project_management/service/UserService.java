@@ -31,7 +31,7 @@ import java.util.*;
 
 @Slf4j
 @Service
-public class AuthService {
+public class UserService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -43,7 +43,7 @@ public class AuthService {
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
-    public AuthService(final UserRepository userRepository, final ModelMapper modelMapper, final BCryptPasswordEncoder bCryptPasswordEncoder, final JwtService jwtService, final RefreshTokenService refreshTokenService,
+    public UserService(final UserRepository userRepository, final ModelMapper modelMapper, final BCryptPasswordEncoder bCryptPasswordEncoder, final JwtService jwtService, final RefreshTokenService refreshTokenService,
                        final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService, final SubscriptionService subscriptionService,
                        final ApplicationEventPublisher applicationEventPublisher){
         this.userRepository = userRepository;
@@ -219,4 +219,5 @@ public class AuthService {
     public boolean existByEmail(String email){
         return userRepository.existsByEmail(email);
     }
+
 }

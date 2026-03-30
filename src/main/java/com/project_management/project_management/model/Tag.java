@@ -1,5 +1,6 @@
 package com.project_management.project_management.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 
@@ -12,6 +13,7 @@ import java.util.Set;
 public class Tag {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @JsonIgnore
     private String tag_id;
     @Column(unique = true)
     private String tag_name;
@@ -19,6 +21,7 @@ public class Tag {
     private String tag_bg;
 
     @ManyToMany(mappedBy = "task_tags")
+    @JsonIgnore
     private Set<Task> tasks;
 
     @Override

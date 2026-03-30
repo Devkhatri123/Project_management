@@ -25,7 +25,6 @@ public class JwtService {
 
     public String generateJwt(User user){
         Map<String,Object> claims = new HashMap<>();
-        // claims.put("hasSubscription", !user.getRole().equals("GUEST") ? true : false);
         return Jwts.builder()
                 .subject(user.getId())
                 .issuedAt(new Date())

@@ -1,12 +1,19 @@
 package com.project_management.project_management.config;
 
+import com.cloudinary.Cloudinary;
+import com.project_management.project_management.config.websocket.CustomHandShakerHandler;
 import com.project_management.project_management.jwt.JwtFilter;
+import com.project_management.project_management.service.SchedulerService;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.record.RecordModule;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
+import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -15,13 +22,25 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @org.springframework.context.annotation.Configuration
 @Slf4j
-public class Configuration {
+@EnableWebSocketMessageBroker
+public class Configuration implements WebSocketMessageBrokerConfigurer {
     private final JwtFilter jwtFilter;
+    @Value("${spring.cloudinary.cloud_name}")
+    private String cloudinary_cloud_name;
+    @Value("${spring.cloudinary.api_key}")
+    private String cloudinary_api_key;
+    @Value("${spring.cloudinary.api_secret}")
+    private String cloudinary_api_secret;
 
     public Configuration(final JwtFilter jwtFilter){
         this.jwtFilter = jwtFilter;
@@ -40,12 +59,22 @@ public class Configuration {
                         .requestMatchers("/workspace/**").authenticated()
                         .requestMatchers("/auth/me").authenticated()
                         .requestMatchers("/workspace/project/**").authenticated()
+                        .requestMatchers("/workspace/project/task/**").permitAll()
                         .anyRequest().permitAll();
                 })
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    @Bean
+    public Cloudinary getCloudinary(){
+        Map<String, String> config = new HashMap<>();
+        config.put("cloud_name", cloudinary_cloud_name);
+        config.put("api_key", cloudinary_api_key);
+        config.put("api_secret", cloudinary_api_secret);
+        return new Cloudinary(config);
     }
 
     @Bean
@@ -81,5 +110,27 @@ public class Configuration {
         executor.setRejectedExecutionHandler((r, executor1) -> log.warn("Task rejected, thread pool is full and queue is also full"));
         executor.initialize();
         return executor;
+    }
+    @Bean
+    public TaskScheduler taskScheduler(){
+        ThreadPoolTaskScheduler threadPoolTaskScheduler = new ThreadPoolTaskScheduler();
+        threadPoolTaskScheduler.setPoolSize(4);
+        threadPoolTaskScheduler.setThreadNamePrefix("scheduler-");
+        threadPoolTaskScheduler.initialize();
+        return threadPoolTaskScheduler;
+    }
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry config) {
+     config.enableSimpleBroker("/topic", "/queue");
+     config.setUserDestinationPrefix("/user");
+     config.setApplicationDestinationPrefixes("/app");
+    }
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry endpointRegistry){
+        endpointRegistry.addEndpoint("/ws")
+                .setAllowedOrigins("*")
+                .setHandshakeHandler(new CustomHandShakerHandler())
+                .withSockJS();
     }
 }

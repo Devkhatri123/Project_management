@@ -4,7 +4,6 @@ import com.project_management.project_management.enums.User_Enums.Role;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -25,7 +24,6 @@ public class User {
     @Column(unique = true)
     private String email;
     @NotBlank(message = "password cannot be empty")
-    // @Size(min = 8, max = 16, message = "password should be of minimum 8 characters and maximum 16 characters")
     private String password;
     private String profile_pic;
     private String title;
@@ -47,6 +45,7 @@ public class User {
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id", referencedColumnName = "subscription_id")
     private Subscription subscription;
+
     // Joined workspace
     @ManyToMany(mappedBy = "workspace_employees")
     private List<WorkSpace> joined_workspace;

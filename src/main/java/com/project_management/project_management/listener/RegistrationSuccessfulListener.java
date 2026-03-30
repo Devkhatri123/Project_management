@@ -9,11 +9,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 @Component
-public class EmailNotificationListener {
+public class RegistrationSuccessfulListener {
     private final EmailService emailService;
 
     @Autowired
-    public EmailNotificationListener(final EmailService emailService){
+    public RegistrationSuccessfulListener(final EmailService emailService){
         this.emailService = emailService;
     }
 

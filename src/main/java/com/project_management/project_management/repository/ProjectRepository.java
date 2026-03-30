@@ -14,4 +14,12 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
     Optional<Project> findProjectWithTask(@Param("project_id") String project_id);
     @Query("SELECT project FROM Project project WHERE project.project_id = :id")
     Optional<Project> findOnlyProjectById(@Param("id") String id);
+    @Query("select project from Project project left join fetch project.project_assignees " +
+            "left join fetch project.project_tasks where project.project_id = :project_id")
+    Optional<Project> findProjectWithProjectAssigneesAndTask(@Param("project_id") String project_id);
+
+    @Query("select project from Project project left join fetch project.project_assignees where project.project_id = :project_id")
+    Optional<Project> getProjectAssignees(@Param("project_id") String project_id);
+
+
 }

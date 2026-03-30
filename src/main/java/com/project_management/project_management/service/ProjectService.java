@@ -7,6 +7,7 @@ import com.project_management.project_management.exception.project.ProjectNotFou
 import com.project_management.project_management.exception.workspace.WorkSpaceNotFound;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ProjectRepository;
+import com.project_management.project_management.util.UserUtil;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,19 +15,23 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ProjectService {
     private final WorkSpaceService workSpaceService;
     private final ModelMapper modelMapper;
     private final ProjectRepository projectRepository;
+    private final UserService userService;
 
     @Autowired
     public ProjectService(final WorkSpaceService workSpaceService, final ModelMapper modelMapper,
-                          final ProjectRepository projectRepository){
+                          final ProjectRepository projectRepository, final UserService userService){
         this.workSpaceService = workSpaceService;
         this.modelMapper = modelMapper;
         this.projectRepository = projectRepository;
+        this.userService = userService;
     }
     public void createProjectInWorkSpace(CreateProjectDTO createProjectDTO) throws WorkSpaceNotFound, MaximumProjectCreationLimitReached {
      WorkSpace workSpace = workSpaceService.getWorkSpaceWithProjectByWorkSpaceKey(createProjectDTO.work_space_key());
@@ -44,8 +49,7 @@ public class ProjectService {
     }
 
     public void updateProjectProgress(String project_id) throws ProjectNotFound {
-      Project project = projectRepository.findProjectWithTask(project_id)
-              .orElseThrow(() -> new ProjectNotFound("Project not found"));
+      Project project = getProjectAndTaskById(project_id);
 
      List<Task> project_Tasks = project.getProject_tasks();
      int totalTasks = project_Tasks.size();
@@ -64,8 +68,25 @@ public class ProjectService {
      project.setProgress_percentage(project_new_progress_percentage);
      projectRepository.save(project);
     }
-    public Project getProjectById(String project_id) throws ProjectNotFound {
-      return projectRepository.findOnlyProjectById(project_id)
+    public Project getProjectAndAssigneesById(String project_id) throws ProjectNotFound {
+      return projectRepository.findProjectWithProjectAssigneesAndTask(project_id)
                 .orElseThrow(() -> new ProjectNotFound("Project not found"));
+    }
+    public Project getProjectAndTaskById(String project_id) throws ProjectNotFound {
+        return projectRepository.findProjectWithTask(project_id)
+                .orElseThrow(() -> new ProjectNotFound("Project not found"));
+    }
+
+    public Set<User> getProjectAssignees(String project_id) throws ProjectNotFound {
+        User loggedInUser = UserUtil.getCurrentUser();
+        Project project = projectRepository.getProjectAssignees(project_id)
+                .orElseThrow(() -> new ProjectNotFound("Invalid project id. Project not found"));
+
+        return project.getProject_assignees().stream().filter(assignee ->
+                !assignee.getId().equals(loggedInUser.getId())).collect(Collectors.toSet());
+    }
+
+    public void updateProject(Project project){
+        projectRepository.save(project);
     }
 }

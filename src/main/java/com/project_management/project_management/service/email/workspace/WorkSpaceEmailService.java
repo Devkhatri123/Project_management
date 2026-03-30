@@ -1,6 +1,5 @@
 package com.project_management.project_management.service.email.workspace;
 
-import com.project_management.project_management.Dtos.workspace.InvitationDTO;
 import com.project_management.project_management.model.Invitation;
 import com.project_management.project_management.service.EmailService;
 import jakarta.mail.MessagingException;

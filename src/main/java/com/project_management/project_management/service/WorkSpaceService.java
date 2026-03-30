@@ -4,8 +4,6 @@ import com.project_management.project_management.Dtos.workspace.CreateWorkSpaceD
 import com.project_management.project_management.Dtos.workspace.InvitationDTO;
 import com.project_management.project_management.Dtos.workspace.UpdateWorkSpace;
 import com.project_management.project_management.enums.Plan_Enums.plan;
-import com.project_management.project_management.enums.User_Enums.Role;
-import com.project_management.project_management.enums.WorkSpace_Enums.WorkSpaceJoin_Status;
 import com.project_management.project_management.event.JoinInvitationEvent;
 import com.project_management.project_management.exception.Token.TokenExpired;
 import com.project_management.project_management.exception.user.UserNotFound;
@@ -16,7 +14,6 @@ import com.project_management.project_management.model.User;
 import com.project_management.project_management.model.WorkSpace;
 import com.project_management.project_management.repository.InvitationRepo;
 import com.project_management.project_management.repository.WorkSpaceRepository;
-import com.project_management.project_management.service.email.workspace.WorkSpaceEmailService;
 import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
@@ -32,29 +29,28 @@ import java.util.UUID;
 @Service
 public class WorkSpaceService {
     private final WorkSpaceRepository workSpaceRepository;
-    private final static String WORKSPACE_DUMMY_LOGO = "https://lh3.googleusercontent.com/rd-gg/AMW1TPp9FpvxAWqgyfXtrPvlLPcAijdLTx8hi2FiICCGcpPH-FDgrPWiL7-rlntvbxTtGbbScfrW1srqh02Emhh7-NdN-pBdt6xPff3eLuTnt_tFPSPz1CcbAUlmXDCs8jN79uE9GH9Qe1s34PmP6Bu8VPzvjBv5VSKbBMXa-XmQgmORBAJ8903VyQFfPmZhujI0j5st4bW10MoJt4E3BrZLAAxESe8S7gQe3Hz-zMEZlNmREh3BSacSDKWbSSdGtwyvyxDVKa2pYD5MVxUG5HmHGLcDfgv8xt1cpuyXd-httvqSxnjiEMPVTxBnJm9D2uxFu12I_ElBLleA0sGNi8154hYJtN-8VJxYJpms_YrW8CQ_SOgXF5XmKQ7eFVjuVeB5nHwsWmAE6vVAR2zx9G_Q93nk8F59z5pR7wrPBzJp6UBeUdOGORadZ8gFDNv_t-FKZQgHx16t40uAx_id_LNbvoLqNipehKbFAv_NtG10UHK_UxRhWT-O7r8h7pyxK19Mharb5SONPTsGO1D-pTDi9BGLgopzneGIQo5ReszkAstPcvYct_3AUVf0rzmPszD6J-Nzg4gs33lcTG7BQA6unXk5r_uGNez5ZnK_iHkMCHMirSEFtQbKTNjTH1moeRxlITN50o8qiCq5Wb8AhgZXdLlmLMmyws5lV7jWzoJ3g8alxtNrtDvqTo931yNiovNnhQOD2-AEULv5SUFafzmCrQIlyZecP9p0aiGDWwo1jQPG4bUqT05OdBP0HXM1cz4yFSvDRzIbxWauZawxSdi8NodD3FD7oSTvaEVhyQqVmoH2Z1tghH4evgaww31L3ejK8Qy4nIDBVCLdO7zmM968uraoncYH7yLsm0q3WkIBhFNHcXrsdQ9DVto7cA3tD0rJF2uvcMtBZuv7qU71vTnjnbznI0UhyB4ysE-EQAjfR3ZFa21KHeUas45ILdI1PdFUhn6tNHPsOvX9FrtW5a88CZCvliilvz3ui2iWa6qQ8LCaTK7pWitFcNkdeBzjdjUoUoaiiZxSmMOIewBTbDIi1zAlS3y7atksA3d9HPDtoRmErLg7u2VxDAxrjClxrCq2hbCE5792faFeOM4WV1tvNluZWohVgzpXZmAfokCNVx8uc9r0sbPD3CaZA1ZMkLt6bmSvsay79789kNPM9DS0stVcFG7UdQAyDsZXffiI73_TaqarkSVfJxTs7w0yGNRx8DpQZt6OI-ONml3aWianxzF3zTz9nWwT1BzEBRslAal8d8le6YbaQno96iQezF_L7Upqwo1gPV_gy4LPZWnPyAA1OPz0KUkdwMSmbylueYiUyyjrCAeA3w9QYiht5Ek5m3jyeBCItDbRZj9drvTq0id2F7xQS53lpU5bVjf7UI0dIiRS-xyAbu0h9CfQL8PxsmkoxSljPZb0E0z9LjonmIWBAyqBNKEP8b78uaMSbTFEZli-AKs3YMV34NY=s1024-rj";
-    private final WorkSpaceEmailService workSpaceEmailService;
+    private final static String WORKSPACE_DUMMY_LOGO = "https://res.cloudinary.com/djecydjrh/image/upload/v1774009713/task_attachment/fgz0zgmjtt7s6wwqrli6.png";
     private final InvitationRepo invitationRepo;
     private final InvitationService invitationService;
-    private final AuthService authService;
+    private final UserService userService;
     private final ApplicationEventPublisher applicationEventPublisher;
     @Autowired
     public WorkSpaceService(final WorkSpaceRepository workSpaceRepository,
-                            final WorkSpaceEmailService workSpaceEmailService,
-                            final InvitationRepo invitationRepo, final InvitationService invitationService,
-                            final AuthService authService, final ApplicationEventPublisher applicationEventPublisher){
+                            final InvitationRepo invitationRepo,
+                            final InvitationService invitationService,
+                            final UserService userService,
+                            final ApplicationEventPublisher applicationEventPublisher
+    ){
         this.workSpaceRepository = workSpaceRepository;
-        this.workSpaceEmailService = workSpaceEmailService;
         this.invitationRepo = invitationRepo;
         this.invitationService = invitationService;
-        this.authService = authService;
+        this.userService = userService;
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
     public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO) throws MaximumWorkSpaceCreationLimitReached {
      User currentUser = UserUtil.getCurrentUser();
-     if(currentUser.getRole().equals(Role.OWNER)){
-         Subscription userCurrentSubscription = currentUser.getSubscription();
+      Subscription userCurrentSubscription = currentUser.getSubscription();
          currentUser.setMyWorkSpaces(workSpaceRepository.findByOwner(currentUser));
          if(userCurrentSubscription.getPlan().getPlanName().equals(plan.BASIC)){
              if(currentUser.getMyWorkSpaces().size() >= userCurrentSubscription.getPlan().getMax_work_space()){
@@ -73,7 +69,6 @@ public class WorkSpaceService {
                      .build();
 
              workSpaceRepository.save(workSpace);
-     }
     }
     public void deleteWorkSpace(String workspace_key){
         workSpaceRepository.deleteByKey(workspace_key);
@@ -105,8 +100,8 @@ public class WorkSpaceService {
                 throw new MaximumWorkSpaceEmployeesLimitHasBeenReached("Your limit of inviting users to workspace has been reached. Please upgrade to add more users to your workspace.");
             }
         }
-        if(authService.existByEmail(invitationDTO.userToBeInvitedEmail())){
-            User userToBeJoined = authService.getUserByEmail(invitationDTO.userToBeInvitedEmail());
+        if(userService.existByEmail(invitationDTO.userToBeInvitedEmail())){
+            User userToBeJoined = userService.getUserByEmail(invitationDTO.userToBeInvitedEmail());
             if(workSpace.getWorkspace_employees().contains(userToBeJoined)){
                 throw new UserHasAlreadyJoinedTheWorkSpace("This user is already in your workspace");
             }
@@ -134,7 +129,7 @@ public class WorkSpaceService {
         List<User> workspace_employees = workSpaceToBeJoined.getWorkspace_employees();
 
        // User which will join the workspace
-       User workSpaceJoiningUser = authService.getUserByEmail(userToBeJoinedEmail);
+       User workSpaceJoiningUser = userService.getUserByEmail(userToBeJoinedEmail);
 
         if (workspace_employees.contains(workSpaceJoiningUser)) {
           throw new UserHasAlreadyJoinedTheWorkSpace("You have already joined this workspace");
