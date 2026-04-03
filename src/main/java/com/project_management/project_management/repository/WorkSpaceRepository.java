@@ -2,6 +2,7 @@ package com.project_management.project_management.repository;
 
 import com.project_management.project_management.model.User;
 import com.project_management.project_management.model.WorkSpace;
+import com.project_management.project_management.projection.WorkSpaceInfoDTO;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,4 +23,9 @@ public interface WorkSpaceRepository extends JpaRepository<WorkSpace, String> {
     Optional<WorkSpace> findWithCreatedProjects(@Param("workSpaceKey") String workSpaceKey);
 
     List<WorkSpace> findByOwner(User owner);
+
+    @Query("select new com.project_management.project_management.projection.WorkSpaceInfoDTO(workspace.workSpace_id, workspace.title, workspace.logo) from WorkSpace workspace where workspace.owner.email= :owner_email")
+    List<WorkSpaceInfoDTO> getShortInfoOfWorkSpaces(@Param("owner_email") String owner_email);
+
+
 }

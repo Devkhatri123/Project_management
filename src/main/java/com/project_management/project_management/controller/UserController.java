@@ -8,6 +8,7 @@ import com.project_management.project_management.exception.InvalidPlanSelected;
 import com.project_management.project_management.exception.Token.TokenExpired;
 import com.project_management.project_management.exception.Token.TokenNotFound;
 import com.project_management.project_management.exception.user.*;
+import com.project_management.project_management.exception.workspace.WorkSpaceNotFound;
 import com.project_management.project_management.service.UserService;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,14 +28,14 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/auth")
-public class AuthController {
+@RequestMapping("/user")
+public class UserController {
     private final UserService userService;
     @Qualifier("handlerExceptionResolver")
     private final HandlerExceptionResolver resolver;
 
     @Autowired
-    public AuthController(final UserService userService, @Qualifier("handlerExceptionResolver") final HandlerExceptionResolver exceptionHandler){
+    public UserController(final UserService userService, @Qualifier("handlerExceptionResolver") final HandlerExceptionResolver exceptionHandler){
         this.userService = userService;
         this.resolver = exceptionHandler;
     }
@@ -219,6 +220,24 @@ public class AuthController {
         } catch (RuntimeException e){
             log.error("exception in sending email: {}", e.getMessage());
             response.put("message", "Internal Server error");
+            response.put("status", 500);
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    @PutMapping("/last-accessed_workspace/workspace/{workspace_id}")
+    public ResponseEntity<?> updateLastAccessedWorkSpace(@PathVariable String workspace_id){
+        Map<String, Object> response = new HashMap<>();
+        try{
+            userService.updateLastAccessedWorkspace(workspace_id);
+            return ResponseEntity.noContent().build();
+        } catch (WorkSpaceNotFound e){
+            log.error("Exception in updating last accessed workspace of a user, because workspace not found");
+            response.put("message", "Last accessed workspace cannot be updated, because workspace not found");
+            response.put("status", 404);
+            return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+        } catch (RuntimeException e){
+            log.error("exception in updating last accessed workspace of a user: {}", e.getMessage());
+            response.put("message", "Internal Server error in updating last access workspace");
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);
         }

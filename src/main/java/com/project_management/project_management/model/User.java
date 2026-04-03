@@ -45,6 +45,8 @@ public class User {
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id", referencedColumnName = "subscription_id")
     private Subscription subscription;
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private WorkSpace last_accessed_workspace;
 
     // Joined workspace
     @ManyToMany(mappedBy = "workspace_employees")

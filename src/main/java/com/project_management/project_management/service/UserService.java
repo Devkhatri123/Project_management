@@ -11,6 +11,7 @@ import com.project_management.project_management.exception.InvalidPlanSelected;
 import com.project_management.project_management.exception.Token.TokenExpired;
 import com.project_management.project_management.exception.Token.TokenNotFound;
 import com.project_management.project_management.exception.user.*;
+import com.project_management.project_management.exception.workspace.WorkSpaceNotFound;
 import com.project_management.project_management.model.*;
 import com.project_management.project_management.repository.ForgetPasswordRepo;
 import com.project_management.project_management.repository.UserRepository;
@@ -40,12 +41,13 @@ public class UserService {
     private final ForgetPasswordRepo forgetPasswordRepo;
     private final EmailService emailService;
     private final SubscriptionService subscriptionService;
+    private final WorkSpaceService workSpaceService;
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public UserService(final UserRepository userRepository, final ModelMapper modelMapper, final BCryptPasswordEncoder bCryptPasswordEncoder, final JwtService jwtService, final RefreshTokenService refreshTokenService,
                        final ForgetPasswordRepo forgetPasswordRepo, final EmailService emailService, final SubscriptionService subscriptionService,
-                       final ApplicationEventPublisher applicationEventPublisher){
+                       final ApplicationEventPublisher applicationEventPublisher, final WorkSpaceService workSpaceService){
         this.userRepository = userRepository;
         this.passwordEncoder = bCryptPasswordEncoder;
         this.modelMapper = modelMapper;
@@ -55,6 +57,7 @@ public class UserService {
         this.emailService = emailService;
         this.subscriptionService = subscriptionService;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.workSpaceService = workSpaceService;
     }
 
       // @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
@@ -135,15 +138,9 @@ public class UserService {
         authorities.add(Authority.CAN_COMPLETE_TASK.name());
 
         if (user.getRole().equals(Role.OWNER)) {
-                authorities.add(Authority.CAN_CREATE_WORKSPACE.name());
-                authorities.add(Authority.CAN_INVITE_NEW_USER.name());
-                authorities.add(Authority.CAN_CREATE_TASK.name());
-                authorities.add(Authority.CAN_CREATE_PROJECT.name());
-                authorities.add(Authority.CAN_ASSIGN_TASK_TO_MEMBERS.name());
-                authorities.add(Authority.CAN_REMOVE_MEMBER.name());
-                authorities.add(Authority.CAN_DELETE_PROJECT.name());
-                authorities.add(Authority.CAN_DELETE_WORKSPACE.name());
-                userDTO.setAuthorities(authorities);
+            authorities.add(Authority.CAN_DO_WRITE_OPERATION.name());
+            authorities.add(Authority.CAN_DO_DELETE_OPERATION.name());
+            userDTO.setAuthorities(authorities);
             }
         return authorities;
     }
@@ -211,6 +208,11 @@ public class UserService {
            userRepository.save(user);
            emailService.ForgetPasswordLink(user);
        }
+    }
+    public void updateLastAccessedWorkspace(String workspace_id) throws WorkSpaceNotFound {
+        User currentLoggedInUser = UserUtil.getCurrentUser();
+        currentLoggedInUser.setLast_accessed_workspace(workSpaceService.getWorkSpaceById(workspace_id));
+        userRepository.save(currentLoggedInUser);
     }
     public User getUserByEmail(String email) throws UserNotFound {
        return userRepository.findByEmail(email)

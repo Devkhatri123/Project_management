@@ -17,9 +17,11 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @RestController
@@ -31,12 +33,12 @@ public class WorkSpaceController {
         this.workSpaceService = workSpaceService;
     }
 
-    @PostMapping("/")
+    @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('OWNER')")
-    public ResponseEntity<Map<String, Object>> createWorkSpace(@Valid @RequestBody CreateWorkSpaceDTO createWorkSpaceDTO){
+    public ResponseEntity<Map<String, Object>> createWorkSpace(@Valid @RequestPart CreateWorkSpaceDTO createWorkSpaceDTO, @RequestPart MultipartFile logo){
         Map<String, Object> response = new HashMap<>();
         try{
-         workSpaceService.createWorkSpace(createWorkSpaceDTO);
+         workSpaceService.createWorkSpace(createWorkSpaceDTO, logo);
          response.put("message","workspace created successfully!");
          response.put("status", 201);
          return ResponseEntity.created(null).body(response);
@@ -56,10 +58,20 @@ public class WorkSpaceController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
-    // Get basic info of current loggedIn created workspaces
-    @GetMapping("/info")
-    public void getMyWorkSpaceInfo(){
-
+    // Get basic info of current loggedIn owner's created workspaces
+    @GetMapping("/info/owner/{owner_email}")
+    public ResponseEntity<?> getMyWorkSpaceInfo(@PathVariable String owner_email){
+     Map<String, Object> response = new HashMap<>();
+      try{
+          response.put("workspaces_info", workSpaceService.getShortInfoOfWorkSpacesOfCurrentLoggedInOwner(owner_email));
+          response.put("status", 200);
+          return ResponseEntity.ok().body(response);
+      } catch (RuntimeException e) {
+          log.error("something went wrong in fetching workspaces info: {}", e.getMessage());
+          response.put("message", "Internal Server error");
+          response.put("status", 500);
+          return ResponseEntity.internalServerError().body(response);
+      }
     }
     @PatchMapping("/")
     public ResponseEntity<?> updateWorkSpace(@Valid @RequestBody UpdateWorkSpace updateWorkSpace){
@@ -167,7 +179,7 @@ public class WorkSpaceController {
        }
        @GetMapping("/{workspace_id}")
        public void getWorkSpaceByKey(@PathVariable String workspace_id) throws WorkSpaceNotFound {
-        workSpaceService.getWorkSpaceBy_WorkSpace_Key(workspace_id);
+        workSpaceService.getWorkSpaceById(workspace_id);
        }
 
 }

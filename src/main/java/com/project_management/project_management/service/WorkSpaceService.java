@@ -13,11 +13,13 @@ import com.project_management.project_management.model.Invitation;
 import com.project_management.project_management.model.Subscription;
 import com.project_management.project_management.model.User;
 import com.project_management.project_management.model.WorkSpace;
+import com.project_management.project_management.projection.WorkSpaceInfoDTO;
 import com.project_management.project_management.repository.InvitationRepo;
 import com.project_management.project_management.repository.WorkSpaceRepository;
 import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@Slf4j
 public class WorkSpaceService {
     private final WorkSpaceRepository workSpaceRepository;
     private final Cloudinary cloudinary;
@@ -55,7 +58,7 @@ public class WorkSpaceService {
         this.cloudinary = cloudinary;
     }
 
-    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO) throws MaximumWorkSpaceCreationLimitReached, IOException {
+    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO, MultipartFile logo) throws MaximumWorkSpaceCreationLimitReached, IOException {
      User currentUser = UserUtil.getCurrentUser();
       Subscription userCurrentSubscription = currentUser.getSubscription();
          currentUser.setMyWorkSpaces(workSpaceRepository.findByOwner(currentUser));
@@ -65,7 +68,7 @@ public class WorkSpaceService {
              }
          }
              WorkSpace workSpace = WorkSpace.builder()
-                     .logo(createWorkSpaceDTO.logo() == null ? WORKSPACE_DUMMY_LOGO : uploadWorkSpaceLogoOnCloudinary(createWorkSpaceDTO.logo()))
+                     .logo(logo == null ? WORKSPACE_DUMMY_LOGO : uploadWorkSpaceLogoOnCloudinary(logo))
                      .title(createWorkSpaceDTO.title())
                      .description(createWorkSpaceDTO.description())
                      .isLocked(false)
@@ -168,9 +171,9 @@ public class WorkSpaceService {
        invitationService.deleteInvitation(invitationRequest.getId());
 
     }
-    public WorkSpace getWorkSpaceBy_WorkSpace_Key(String workspace_id) throws WorkSpaceNotFound {
+    public WorkSpace getWorkSpaceById(String workspace_id) throws WorkSpaceNotFound {
        return workSpaceRepository.findById(workspace_id)
-               .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace id. Workspace not found"));
+               .orElseThrow(() -> new WorkSpaceNotFound("Workspace not found"));
     }
 
     public WorkSpace getWorkSpaceWithProjectByWorkSpaceKey(String workSpaceKey) throws WorkSpaceNotFound {
@@ -180,5 +183,8 @@ public class WorkSpaceService {
     private String uploadWorkSpaceLogoOnCloudinary(MultipartFile file) throws IOException {
         Map image_result =  this.cloudinary.uploader().upload(file.getBytes(), Map.of("folder", "workspace_logos"));
         return (String) image_result.get("secure_url");
+    }
+    public List<WorkSpaceInfoDTO> getShortInfoOfWorkSpacesOfCurrentLoggedInOwner(String owner_email){
+       return workSpaceRepository.getShortInfoOfWorkSpaces(owner_email);
     }
 }
