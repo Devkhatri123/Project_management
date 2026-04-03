@@ -1,5 +1,6 @@
 package com.project_management.project_management.service;
 
+import com.cloudinary.Cloudinary;
 import com.project_management.project_management.Dtos.workspace.CreateWorkSpaceDTO;
 import com.project_management.project_management.Dtos.workspace.InvitationDTO;
 import com.project_management.project_management.Dtos.workspace.UpdateWorkSpace;
@@ -20,15 +21,19 @@ import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class WorkSpaceService {
     private final WorkSpaceRepository workSpaceRepository;
+    private final Cloudinary cloudinary;
     private final static String WORKSPACE_DUMMY_LOGO = "https://res.cloudinary.com/djecydjrh/image/upload/v1774009713/task_attachment/fgz0zgmjtt7s6wwqrli6.png";
     private final InvitationRepo invitationRepo;
     private final InvitationService invitationService;
@@ -39,16 +44,18 @@ public class WorkSpaceService {
                             final InvitationRepo invitationRepo,
                             final InvitationService invitationService,
                             final UserService userService,
-                            final ApplicationEventPublisher applicationEventPublisher
+                            final ApplicationEventPublisher applicationEventPublisher,
+                            final Cloudinary cloudinary
     ){
         this.workSpaceRepository = workSpaceRepository;
         this.invitationRepo = invitationRepo;
         this.invitationService = invitationService;
         this.userService = userService;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.cloudinary = cloudinary;
     }
 
-    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO) throws MaximumWorkSpaceCreationLimitReached {
+    public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO) throws MaximumWorkSpaceCreationLimitReached, IOException {
      User currentUser = UserUtil.getCurrentUser();
       Subscription userCurrentSubscription = currentUser.getSubscription();
          currentUser.setMyWorkSpaces(workSpaceRepository.findByOwner(currentUser));
@@ -58,7 +65,7 @@ public class WorkSpaceService {
              }
          }
              WorkSpace workSpace = WorkSpace.builder()
-                     .logo(createWorkSpaceDTO.logo() == null ? WORKSPACE_DUMMY_LOGO : "")
+                     .logo(createWorkSpaceDTO.logo() == null ? WORKSPACE_DUMMY_LOGO : uploadWorkSpaceLogoOnCloudinary(createWorkSpaceDTO.logo()))
                      .title(createWorkSpaceDTO.title())
                      .description(createWorkSpaceDTO.description())
                      .isLocked(false)
@@ -70,17 +77,23 @@ public class WorkSpaceService {
 
              workSpaceRepository.save(workSpace);
     }
-    public void deleteWorkSpace(String workspace_key){
-        workSpaceRepository.deleteByKey(workspace_key);
+    @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
+    public void deleteWorkSpace(String workspace_id) throws WorkSpaceNotFound {
+        WorkSpace workspace = workSpaceRepository.findById(workspace_id)
+                        .orElseThrow(() -> new WorkSpaceNotFound("workspace has been deleted already"));
+        workspace.getOwner().getMyWorkSpaces()
+               .removeIf(workSpace ->
+                       workSpace.getWorkSpace_id().equals(workspace_id));
+        workspace.setOwner(null);
     }
 
-    public void updateWorkSpace(UpdateWorkSpace updateWorkSpace) throws WorkSpaceNotFound, WorkSpaceIsLocked {
+    public void updateWorkSpace(UpdateWorkSpace updateWorkSpace) throws WorkSpaceNotFound, WorkSpaceIsLocked, IOException {
        WorkSpace workSpace = workSpaceRepository.findOneByKey(updateWorkSpace.workspace_key())
                 .orElseThrow(() -> new WorkSpaceNotFound("Workspace not found. May be it doesn't exist or try again later"));
        if(!workSpace.isLocked()) {
            workSpace.setTitle(updateWorkSpace.title());
            workSpace.setDescription(updateWorkSpace.description());
-           workSpace.setLogo(updateWorkSpace.logo() == null ? workSpace.getLogo() : updateWorkSpace.logo().toString());
+           workSpace.setLogo(updateWorkSpace.logo() == null ? workSpace.getLogo() : uploadWorkSpaceLogoOnCloudinary(updateWorkSpace.logo()));
            workSpaceRepository.save(workSpace);
        } else throw new WorkSpaceIsLocked("You cannot update this workspace, because this workspace is locked.");
     }
@@ -100,12 +113,14 @@ public class WorkSpaceService {
                 throw new MaximumWorkSpaceEmployeesLimitHasBeenReached("Your limit of inviting users to workspace has been reached. Please upgrade to add more users to your workspace.");
             }
         }
+
         if(userService.existByEmail(invitationDTO.userToBeInvitedEmail())){
             User userToBeJoined = userService.getUserByEmail(invitationDTO.userToBeInvitedEmail());
             if(workSpace.getWorkspace_employees().contains(userToBeJoined)){
-                throw new UserHasAlreadyJoinedTheWorkSpace("This user is already in your workspace");
+                throw new UserHasAlreadyJoinedTheWorkSpace("User of email :"+userToBeJoined.getEmail()+" is already in your workspace");
             }
         }
+
         Invitation invitation = invitationService.createInvitation(invitationDTO.userToBeInvitedEmail(), workSpace);
 
         invitation = invitationRepo.save(invitation);
@@ -153,13 +168,17 @@ public class WorkSpaceService {
        invitationService.deleteInvitation(invitationRequest.getId());
 
     }
-    public WorkSpace getWorkSpaceBy_WorkSpace_Key(String workspace_key) throws WorkSpaceNotFound {
-       return workSpaceRepository.findOneByKey(workspace_key)
-               .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace key. Workspace not found"));
+    public WorkSpace getWorkSpaceBy_WorkSpace_Key(String workspace_id) throws WorkSpaceNotFound {
+       return workSpaceRepository.findById(workspace_id)
+               .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace id. Workspace not found"));
     }
 
     public WorkSpace getWorkSpaceWithProjectByWorkSpaceKey(String workSpaceKey) throws WorkSpaceNotFound {
        return workSpaceRepository.findWithCreatedProjects(workSpaceKey)
                .orElseThrow(() -> new WorkSpaceNotFound("Invalid workspace key. Workspace not found"));
+    }
+    private String uploadWorkSpaceLogoOnCloudinary(MultipartFile file) throws IOException {
+        Map image_result =  this.cloudinary.uploader().upload(file.getBytes(), Map.of("folder", "workspace_logos"));
+        return (String) image_result.get("secure_url");
     }
 }

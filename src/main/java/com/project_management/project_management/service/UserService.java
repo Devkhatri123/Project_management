@@ -216,6 +216,9 @@ public class UserService {
        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFound("Invalid email. User not found of this email."));
     }
+    public User getUserById(String user_id)  {
+        return userRepository.findById(user_id).get();
+    }
     public boolean existByEmail(String email){
         return userRepository.existsByEmail(email);
     }

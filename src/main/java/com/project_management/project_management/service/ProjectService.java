@@ -68,7 +68,7 @@ public class ProjectService {
      project.setProgress_percentage(project_new_progress_percentage);
      projectRepository.save(project);
     }
-    public Project getProjectAndAssigneesById(String project_id) throws ProjectNotFound {
+    public Project findProjectWithProjectAssigneesAndTask(String project_id) throws ProjectNotFound {
       return projectRepository.findProjectWithProjectAssigneesAndTask(project_id)
                 .orElseThrow(() -> new ProjectNotFound("Project not found"));
     }
@@ -84,6 +84,10 @@ public class ProjectService {
 
         return project.getProject_assignees().stream().filter(assignee ->
                 !assignee.getId().equals(loggedInUser.getId())).collect(Collectors.toSet());
+    }
+
+    public Project getProjectById(String project_id) {
+        return projectRepository.findOnlyProjectById(project_id).get();
     }
 
     public void updateProject(Project project){

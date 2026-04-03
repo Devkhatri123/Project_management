@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Builder
@@ -38,4 +39,16 @@ public class WorkSpace {
     private List<User> workspace_employees;
     @OneToMany(mappedBy = "invitedToWorkspace", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Invitation> invitedUsers;
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        WorkSpace workSpace = (WorkSpace) o;
+        return Objects.equals(workSpace_id, workSpace.workSpace_id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(workSpace_id);
+    }
 }

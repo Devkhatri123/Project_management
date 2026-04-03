@@ -41,6 +41,7 @@ public class CustomHandShakerHandler extends DefaultHandshakeHandler {
                 }
                 if(access_token != null){
                   String user_id = jwtService.extractUserId(access_token);
+                  attributes.put("access_token", access_token);
                   return new CustomPrincipal(user_id);
                 }
             }

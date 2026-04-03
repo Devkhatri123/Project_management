@@ -19,7 +19,7 @@ public class Subscription {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String subscription_id;
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.REMOVE})
     private Plan plan;
     private LocalDateTime startDate;
     private LocalDateTime dueDate;

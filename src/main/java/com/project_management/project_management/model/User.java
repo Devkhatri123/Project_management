@@ -38,7 +38,7 @@ public class User {
     // created workspace
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<WorkSpace> myWorkSpaces;
-    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true,  fetch = FetchType.LAZY)
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private ForgetPassword forgetPassword;
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private RefreshToken refreshToken;

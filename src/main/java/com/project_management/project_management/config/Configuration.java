@@ -2,6 +2,7 @@ package com.project_management.project_management.config;
 
 import com.cloudinary.Cloudinary;
 import com.project_management.project_management.config.websocket.CustomHandShakerHandler;
+import com.project_management.project_management.config.websocket.CustomWebSocketInterceptor;
 import com.project_management.project_management.jwt.JwtFilter;
 import com.project_management.project_management.service.SchedulerService;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.modelmapper.record.RecordModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -132,5 +134,9 @@ public class Configuration implements WebSocketMessageBrokerConfigurer {
                 .setAllowedOrigins("*")
                 .setHandshakeHandler(new CustomHandShakerHandler())
                 .withSockJS();
+    }
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration channelRegistration){
+        channelRegistration.interceptors(new CustomWebSocketInterceptor());
     }
 }

@@ -62,7 +62,7 @@ public class TaskService {
       // task creator subscription
       Subscription task_creator_subscription = task_creator.getSubscription();
       // Get the project in which task is being created
-      Project task_owner_project = projectService.getProjectAndAssigneesById(createTaskDTO.project_id());
+      Project task_owner_project = projectService.findProjectWithProjectAssigneesAndTask(createTaskDTO.project_id());
       // Check the current plan
       if(UserUtil.isBasicPlan(task_creator_subscription)){
           if(task_owner_project.getProject_tasks().size() > task_creator_subscription.getPlan().getMax_tasks_per_project()){

@@ -1,11 +1,12 @@
 package com.project_management.project_management.controller;
 
 import com.project_management.project_management.Dtos.project.CreateProjectDTO;
-import com.project_management.project_management.Dtos.project.chat.ChatMessageDTO;
+import com.project_management.project_management.Dtos.project.chat.SendMessageDTO;
 import com.project_management.project_management.exception.project.MaximumProjectCreationLimitReached;
 import com.project_management.project_management.exception.project.ProjectNotFound;
 import com.project_management.project_management.exception.workspace.WorkSpaceNotFound;
 import com.project_management.project_management.model.User;
+import com.project_management.project_management.service.ChatService;
 import com.project_management.project_management.service.ProjectService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -26,12 +26,12 @@ import java.util.Set;
 @Slf4j
 public class ProjectController {
     private final ProjectService projectService;
-    private final SimpMessagingTemplate simpMessagingTemplate;
+    private final ChatService chatService;
 
     @Autowired
-    public ProjectController(final ProjectService projectService, final SimpMessagingTemplate messagingTemplate){
+    public ProjectController(final ProjectService projectService, final ChatService chatService){
         this.projectService = projectService;
-        this.simpMessagingTemplate = messagingTemplate;
+        this.chatService = chatService;
     }
 
     @PostMapping("/")
@@ -81,8 +81,8 @@ public class ProjectController {
     }
 
     // Chat logic
-
-    @MessageMapping("/chat/send")
-    public void sendPrivateMessage(@Payload ChatMessageDTO chatMessageDTO){
+    @MessageMapping("/project/chat/send")
+    public void sendPrivateMessage(@Payload SendMessageDTO sendMessageDTO) {
+        chatService.saveAndSendMessage(sendMessageDTO);
     }
 }

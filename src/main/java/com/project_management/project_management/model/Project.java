@@ -36,4 +36,6 @@ public class Project {
     joinColumns = {@JoinColumn(name = "project_id", referencedColumnName = "project_id")},
     inverseJoinColumns = {@JoinColumn(name = "user_id", referencedColumnName = "id")})
     private Set<User> project_assignees;
+    @OneToMany(mappedBy = "project", cascade = {CascadeType.REMOVE, CascadeType.DETACH})
+    private List<ChatMessage> project_chats;
 }
