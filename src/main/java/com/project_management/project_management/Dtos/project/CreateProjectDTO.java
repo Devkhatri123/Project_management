@@ -14,5 +14,5 @@ public record CreateProjectDTO(
         @Size(min = 10, max = 300, message = "Maximum character length of description is 1024. Minimum character length of description is 10 ") String description,
         @NotNull(message = "please provide a correct and valid due date")
         @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate dueDate,
-        @NotBlank(message = "workspace key is required") String work_space_key) {
+        @NotBlank(message = "workspace id is required") String workspace_id) {
 }

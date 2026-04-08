@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/workspace/project")
+@RequestMapping("/project")
 @Slf4j
 public class ProjectController {
     private final ProjectService projectService;
@@ -58,6 +58,11 @@ public class ProjectController {
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);
         }
+    }
+    @GetMapping("/workspace/{workspace_id}")
+    public ResponseEntity<?> getWorkspaceProjects(@PathVariable String workspace_id, @RequestParam int pageNumber, @RequestParam int limit){
+     return ResponseEntity.ok()
+             .body(projectService.getWorkspaceProjects(workspace_id, pageNumber, limit));
     }
     @GetMapping("/{project_id}/assignees")
     public ResponseEntity<?> getProjectAssignees(@PathVariable String project_id){

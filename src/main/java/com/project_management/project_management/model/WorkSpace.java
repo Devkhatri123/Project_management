@@ -30,7 +30,7 @@ public class WorkSpace {
     @JoinColumn(name = "owner_id")
     private User owner;
 
-    @OneToOne(mappedBy = "WorkSpace")
+    @OneToOne(mappedBy = "last_accessed_workspace")
     private User last_accessed_by;
 
     @OneToMany(mappedBy = "workSpace", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

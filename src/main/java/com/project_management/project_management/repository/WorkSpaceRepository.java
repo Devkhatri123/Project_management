@@ -27,5 +27,7 @@ public interface WorkSpaceRepository extends JpaRepository<WorkSpace, String> {
     @Query("select new com.project_management.project_management.projection.WorkSpaceInfoDTO(workspace.workSpace_id, workspace.title, workspace.logo) from WorkSpace workspace where workspace.owner.email= :owner_email")
     List<WorkSpaceInfoDTO> getShortInfoOfWorkSpaces(@Param("owner_email") String owner_email);
 
+    @Query("select count(workspace.workSpace_id) from WorkSpace workspace where workspace.owner.id = :owner_id")
+    long countOwnerCreatedWorkSpace(@Param("owner_id") String owner_id);
 
 }

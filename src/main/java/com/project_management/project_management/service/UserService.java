@@ -17,15 +17,20 @@ import com.project_management.project_management.repository.ForgetPasswordRepo;
 import com.project_management.project_management.repository.UserRepository;
 import com.project_management.project_management.util.UserUtil;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseCookie;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -79,14 +84,15 @@ public class UserService {
             // Send account creation successful email
             applicationEventPublisher.publishEvent(new UserCreatedEvent(user));
     }
-    public Map<String, Object> login(LoginRequest loginRequest) throws IncorrectEmail, IncorrectPassword {
+    public Map<String, ResponseCookie> login(LoginRequest loginRequest) throws IncorrectEmail, IncorrectPassword {
         User user = userRepository.findByEmail(loginRequest.email())
                 .orElseThrow(() -> new IncorrectEmail("Incorrect email. Try again"));
         if(passwordEncoder.matches(loginRequest.password(), user.getPassword())) {
+           String access_token = jwtService.generateJwt(user);
              // Generate a new refresh token and save it in db
             RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
             refreshTokenService.saveRefreshToken(refreshToken);
-            return createJwtResponse(user, refreshToken.getToken(), refreshToken.getExpiresOn());
+            return addCookiesInMap(addAccessTokenInCookie(access_token), addRefreshTokenInCookie(refreshToken.getToken()));
         } else {
            throw new IncorrectPassword("Wrong password");
         }
@@ -101,6 +107,9 @@ public class UserService {
                  .build();
     }
 
+    private Map<String, ResponseCookie> addCookiesInMap(ResponseCookie access_token_Cookie, ResponseCookie refresh_token_Cookie){
+        return Map.of("access_token", access_token_Cookie, "refresh_token", refresh_token_Cookie);
+    }
     @Transactional(rollbackOn = {Exception.class, RuntimeException.class})
     public Map<String, Object> refreshJwtToken(String token) throws TokenExpired, TokenNotFound {
        RefreshToken refreshToken = refreshTokenService.findRefreshToken(token);
@@ -113,12 +122,12 @@ public class UserService {
            refreshTokenService.deleteRefreshToken(refreshToken.getToken());
            RefreshToken newRefreshToken = refreshTokenService.createRefreshToken(user);
            refreshTokenService.saveRefreshToken(newRefreshToken);
-           return createJwtResponse(user, newRefreshToken.getToken(), newRefreshToken.getExpiresOn());
+           return createJwtResponse(user, newRefreshToken.getToken());
        }
        log.info("Refresh token expired");
        throw new TokenExpired("The refresh token is expired");
     }
-    private Map<String, Object> createJwtResponse(User user,String refreshToken,LocalDateTime refreshTokenExpiry){
+    private Map<String, Object> createJwtResponse(User user,String refreshToken){
         Map<String, Object> response = new HashMap<>();
         response.put("jwt", jwtService.generateJwt(user));
         response.put("refreshToken", refreshToken);
@@ -129,6 +138,7 @@ public class UserService {
      UserDTO userDTO = modelMapper.map(user, UserDTO.class);
      userDTO.set_enabled(user.is_enabled());
      userDTO.setAuthorities(assignAuthoritiesToLoggedInUser(user, userDTO));
+     userDTO.setLast_accessed_workspace_id(user.getLast_accessed_workspace().getWorkSpace_id());
      return userDTO;
     }
     // Set authorities to loggedInUser
@@ -209,6 +219,25 @@ public class UserService {
            emailService.ForgetPasswordLink(user);
        }
     }
+    private ResponseCookie addAccessTokenInCookie(String access_Token){
+       return ResponseCookie.from("access_token", access_Token)
+                .httpOnly(false)
+                .maxAge(Duration.ofMinutes(10))
+                .secure(false)
+                .path("/")
+                .sameSite("Lax")
+                .build();
+    }
+    private ResponseCookie addRefreshTokenInCookie(String refresh_token){
+        return ResponseCookie.from("refresh_token", refresh_token)
+                .httpOnly(false)
+                .maxAge(Duration.ofDays(7))
+                .secure(false)
+                .path("/")
+                .sameSite("Lax")
+                .build();
+    }
+    @Async("activityPool")
     public void updateLastAccessedWorkspace(String workspace_id) throws WorkSpaceNotFound {
         User currentLoggedInUser = UserUtil.getCurrentUser();
         currentLoggedInUser.setLast_accessed_workspace(workSpaceService.getWorkSpaceById(workspace_id));

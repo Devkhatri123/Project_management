@@ -177,9 +177,5 @@ public class WorkSpaceController {
             return ResponseEntity.internalServerError().body(response);
        }
        }
-       @GetMapping("/{workspace_id}")
-       public void getWorkSpaceByKey(@PathVariable String workspace_id) throws WorkSpaceNotFound {
-        workSpaceService.getWorkSpaceById(workspace_id);
-       }
 
 }

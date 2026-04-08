@@ -14,4 +14,5 @@ public class UserDTO {
     private String profile_pic;
     private boolean is_enabled;
     private List<String> authorities;
+    private String last_accessed_workspace_id;
 }

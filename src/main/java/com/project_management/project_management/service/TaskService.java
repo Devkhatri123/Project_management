@@ -13,6 +13,7 @@ import com.project_management.project_management.exception.task.TaskCreationLimi
 import com.project_management.project_management.exception.task.TaskNotFound;
 import com.project_management.project_management.exception.user.UserNotFound;
 import com.project_management.project_management.model.*;
+import com.project_management.project_management.projection.AssignedTaskInfoDTO;
 import com.project_management.project_management.repository.TaskRepository;
 import com.project_management.project_management.util.UserUtil;
 import jakarta.transaction.Transactional;
@@ -112,9 +113,9 @@ public class TaskService {
        Task task = taskRepository.getTaskById(task_id)
                 .orElseThrow(() -> new TaskNotFound("Task not found"));
       TaskDTO taskDTO = modelMapper.map(task, TaskDTO.class);
-      taskDTO.setCreator(new TaskUserDTO(task.getCreatedBy().getName(), task.getCreatedBy().getEmail(),
+      taskDTO.setCreator(new TaskUserDTO(task.getCreatedBy().getName(), task.getCreatedBy().getEmail(), task.getCreatedBy().getTitle(),
       task.getCreatedBy().getProfile_pic()));
-      taskDTO.setAssignee(new TaskUserDTO(task.getAssignee().getName(), task.getAssignee().getEmail(),
+      taskDTO.setAssignee(new TaskUserDTO(task.getAssignee().getName(), task.getAssignee().getEmail(), task.getAssignee().getTitle(),
       task.getAssignee().getProfile_pic()));
       return taskDTO;
     }
@@ -136,4 +137,7 @@ public class TaskService {
         taskRepository.changeTaskStatusToOverDue();
     }
 
+    public List<AssignedTaskInfoDTO> getAssignedToUserTasks(String userId, String workspace_id) {
+    return taskRepository.getInfoOfAssignedTasksToUser(userId, workspace_id);
+    }
 }

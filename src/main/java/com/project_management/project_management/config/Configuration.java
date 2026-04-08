@@ -19,6 +19,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -31,6 +32,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 @org.springframework.context.annotation.Configuration
 @Slf4j
@@ -59,8 +61,9 @@ public class Configuration implements WebSocketMessageBrokerConfigurer {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth->{ auth
                         .requestMatchers("/workspace/**").authenticated()
-                        .requestMatchers("/auth/me").authenticated()
-                        .requestMatchers("/workspace/project/**").authenticated()
+                        .requestMatchers("/user/me").authenticated()
+                        .requestMatchers("/user/last-accessed_workspace/workspace/{workspace_id}").authenticated()
+                        .requestMatchers("/project/**").authenticated()
                         .requestMatchers("/workspace/project/task/**").permitAll()
                         .anyRequest().permitAll();
                 })
@@ -105,13 +108,24 @@ public class Configuration implements WebSocketMessageBrokerConfigurer {
     @Bean
     public ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(20);
-        executor.setMaxPoolSize(30);
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(20);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("AsyncThread-");
         executor.setRejectedExecutionHandler((r, executor1) -> log.warn("Task rejected, thread pool is full and queue is also full"));
         executor.initialize();
         return executor;
+    }
+    @Bean(name = "activityPool")
+    public Executor taskExecutor2() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(5);
+        executor.setMaxPoolSize(20);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("activityPool-");
+        executor.setRejectedExecutionHandler((r, executor1) -> log.warn("Task rejected, thread pool is full and queue is also full"));
+        executor.initialize();
+        return new DelegatingSecurityContextAsyncTaskExecutor(executor);
     }
     @Bean
     public TaskScheduler taskScheduler(){

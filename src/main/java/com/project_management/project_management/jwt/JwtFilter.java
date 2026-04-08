@@ -7,6 +7,7 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -45,22 +46,33 @@ public class JwtFilter extends OncePerRequestFilter {
         if(authorizationHeader != null && authorizationHeader.startsWith("Bearer")){
             token = authorizationHeader.substring(7);
         }
+        if(token == null){
+         Cookie[] cookies = request.getCookies();
+         if(cookies != null){
+         for (Cookie cookie : cookies){
+             if(cookie.getName().equals("access_token")){
+                 token = cookie.getValue();
+                 break;
+             }
+             }
+         }
+        }
         if(token != null){
             try{
                 id = jwtService.extractUserId(token);
-            }catch (IllegalArgumentException e){
+            } catch (IllegalArgumentException e){
                 resolver.resolveException(request, response, null, e);
                 log.error("IllegalArgumentException:", e);
                 return;
-            }catch (MalformedJwtException e){
+            } catch (MalformedJwtException e){
                 resolver.resolveException(request, response, null, e);
                 log.error("Token has been malformed: {}", e.getMessage());
                 return;
-            }catch (ExpiredJwtException e){
+            } catch (ExpiredJwtException e){
                 resolver.resolveException(request, response, null, e);
                 log.error("Token has been expired: {}", e.getMessage());
                 return;
-            }catch (Exception e){
+            } catch (Exception e){
                 resolver.resolveException(request, response, null, e);
                 log.error("Jwt Exception:", e);
                 return;

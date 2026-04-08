@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
+@Async
 public class EmailService {
     private final JavaMailSender mailSender;
     @Value("${spring.mail.username}")

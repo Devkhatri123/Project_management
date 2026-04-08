@@ -18,7 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerExceptionResolver;
@@ -96,9 +98,11 @@ public class UserController {
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest){
         Map<String, Object> response = new HashMap<>();
         try{
-          response = userService.login(loginRequest);
-          response.put("status", 200);
-          return ResponseEntity.ok().body(response);
+          Map<String, ResponseCookie> responseCookieMap = userService.login(loginRequest);
+          return ResponseEntity.noContent()
+                  .header(HttpHeaders.SET_COOKIE, responseCookieMap.get("access_token").toString())
+                  .header(HttpHeaders.SET_COOKIE, responseCookieMap.get("refresh_token").toString())
+                  .build();
         }catch (IncorrectEmail | IncorrectPassword e){
             log.error(e.getMessage());
             response.put("message", e.getMessage());

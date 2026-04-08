@@ -46,6 +46,7 @@ public class User {
     @JoinColumn(name = "subscription_id", referencedColumnName = "subscription_id")
     private Subscription subscription;
     @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_accessed_workspace_id")
     private WorkSpace last_accessed_workspace;
 
     // Joined workspace

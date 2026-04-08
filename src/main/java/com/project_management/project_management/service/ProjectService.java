@@ -1,5 +1,6 @@
 package com.project_management.project_management.service;
 
+import com.project_management.project_management.Dtos.project.BasicProjectInfoDTO;
 import com.project_management.project_management.Dtos.project.CreateProjectDTO;
 import com.project_management.project_management.enums.Plan_Enums.plan;
 import com.project_management.project_management.exception.project.MaximumProjectCreationLimitReached;
@@ -10,10 +11,13 @@ import com.project_management.project_management.repository.ProjectRepository;
 import com.project_management.project_management.util.UserUtil;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -34,7 +38,7 @@ public class ProjectService {
         this.userService = userService;
     }
     public void createProjectInWorkSpace(CreateProjectDTO createProjectDTO) throws WorkSpaceNotFound, MaximumProjectCreationLimitReached {
-     WorkSpace workSpace = workSpaceService.getWorkSpaceWithProjectByWorkSpaceKey(createProjectDTO.work_space_key());
+     WorkSpace workSpace = workSpaceService.getWorkSpaceById(createProjectDTO.workspace_id());
      User workspaceOwner = workSpace.getOwner();
      if(workspaceOwner.getSubscription().getPlan().getPlanName() == plan.BASIC){
          if(workSpace.getMy_projects().size() >= workspaceOwner.getSubscription().getPlan().getMax_projects_per_workspace()){
@@ -42,6 +46,7 @@ public class ProjectService {
          }
      }
     Project project = modelMapper.map(createProjectDTO, Project.class);
+    project.setProject_id(null);
     project.setCreatedOn(Instant.now());
     project.setWorkSpace(workSpace);
 
@@ -92,5 +97,14 @@ public class ProjectService {
 
     public void updateProject(Project project){
         projectRepository.save(project);
+    }
+
+    public List<BasicProjectInfoDTO> getWorkspaceProjects(String workspaceId, int pageNumber, int limit) {
+        List<BasicProjectInfoDTO> workspaceProjectsDTOList = new ArrayList<>();
+        projectRepository.getWorkspaceProjects(workspaceId, PageRequest.of(pageNumber, limit))
+                .forEach(project -> {
+                 workspaceProjectsDTOList.add(modelMapper.map(project, BasicProjectInfoDTO.class));
+                });
+        return workspaceProjectsDTOList;
     }
 }

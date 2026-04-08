@@ -2,6 +2,7 @@ package com.project_management.project_management.repository;
 
 import com.project_management.project_management.enums.Task_Enums.ReminderEnum;
 import com.project_management.project_management.model.Task;
+import com.project_management.project_management.projection.AssignedTaskInfoDTO;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -32,5 +33,6 @@ public interface TaskRepository extends JpaRepository<Task, String> {
     @Query("UPDATE Task task SET task.task_status = (SELECT status FROM Status status WHERE status.status_name = 'Overdue') WHERE NOW() > task.dueDate AND task.task_status != (SELECT status FROM Status status WHERE status.status_name = 'Overdue')")
     void changeTaskStatusToOverDue();
 
-
+    @Query("select new com.project_management.project_management.projection.AssignedTaskInfoDTO(task.task_id, task.title, project.project_id, project.title, task_status) from Task task left join task.project as project left join task.task_status as task_status where task.assignee.id = :assignee_id and task.project.workSpace.workSpace_id = :workspace_id")
+    List<AssignedTaskInfoDTO> getInfoOfAssignedTasksToUser(@Param("assignee_id") String assignee_id, @Param("workspace_id") String workspace_id);
 }

@@ -22,6 +22,7 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -46,7 +47,7 @@ public class WorkSpaceService {
     public WorkSpaceService(final WorkSpaceRepository workSpaceRepository,
                             final InvitationRepo invitationRepo,
                             final InvitationService invitationService,
-                            final UserService userService,
+                            @Lazy final UserService userService,
                             final ApplicationEventPublisher applicationEventPublisher,
                             final Cloudinary cloudinary
     ){
@@ -59,11 +60,10 @@ public class WorkSpaceService {
     }
 
     public void createWorkSpace(CreateWorkSpaceDTO createWorkSpaceDTO, MultipartFile logo) throws MaximumWorkSpaceCreationLimitReached, IOException {
-     User currentUser = UserUtil.getCurrentUser();
+      User currentUser = UserUtil.getCurrentUser();
       Subscription userCurrentSubscription = currentUser.getSubscription();
-         currentUser.setMyWorkSpaces(workSpaceRepository.findByOwner(currentUser));
-         if(userCurrentSubscription.getPlan().getPlanName().equals(plan.BASIC)){
-             if(currentUser.getMyWorkSpaces().size() >= userCurrentSubscription.getPlan().getMax_work_space()){
+      if(userCurrentSubscription.getPlan().getPlanName().equals(plan.BASIC)){
+             if(countCreatedWorkSpaces(currentUser.getId()) >= userCurrentSubscription.getPlan().getMax_work_space()){
                  throw new MaximumWorkSpaceCreationLimitReached("Your maximum workspace creation limit has been reached. Please upgrade to premium plan to create more workspace");
              }
          }
@@ -186,5 +186,8 @@ public class WorkSpaceService {
     }
     public List<WorkSpaceInfoDTO> getShortInfoOfWorkSpacesOfCurrentLoggedInOwner(String owner_email){
        return workSpaceRepository.getShortInfoOfWorkSpaces(owner_email);
+    }
+    public long countCreatedWorkSpaces(String owner_id){
+        return workSpaceRepository.countOwnerCreatedWorkSpace(owner_id);
     }
 }

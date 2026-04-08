@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import javax.swing.text.html.Option;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,7 +24,7 @@ public class RefreshTokenService {
                 .token(UUID.randomUUID().toString().substring(0, 12))
                 .isExpired(false)
                 .user(user)
-                .expiresOn(LocalDateTime.now().plusDays(1))
+                .expiresOn(LocalDateTime.now(ZoneOffset.UTC).plusDays(7))
                 .build();
     }
     public void saveRefreshToken(RefreshToken refreshToken){

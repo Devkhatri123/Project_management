@@ -23,6 +23,7 @@ public class Task {
     private String description;
     private Instant startDate;
     private Instant dueDate;
+    private Instant completedAt;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;

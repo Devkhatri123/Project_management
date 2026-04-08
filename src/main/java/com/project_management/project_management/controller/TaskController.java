@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -25,7 +26,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/workspace/project/task")
+@RequestMapping("/task")
 public class TaskController {
     private final TaskService taskService;
 
@@ -33,6 +34,7 @@ public class TaskController {
         this.taskService = taskService;
     }
     @PostMapping("/")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<?> createTask(@Valid @RequestPart CreateTaskDTO createTaskDTO, @RequestPart List<MultipartFile> attachments){
         Map<String, Object> response = new HashMap<>();
         try {
@@ -61,6 +63,10 @@ public class TaskController {
             response.put("status", 500);
             return ResponseEntity.internalServerError().body(response);
         }
+    }
+    @GetMapping("/workspace/{workspace_id}/user/{user_id}")
+    public ResponseEntity<?> getInfoOfAssignedTasksToUsers(@PathVariable String user_id, @PathVariable String workspace_id){
+       return ResponseEntity.ok().body(taskService.getAssignedToUserTasks(user_id, workspace_id));
     }
     @PutMapping("/{task_id}/status")
     public ResponseEntity<?> changeTaskStatus(@PathVariable String task_id, @Valid @RequestBody ChangeStatusDTO changeStatusDTO){

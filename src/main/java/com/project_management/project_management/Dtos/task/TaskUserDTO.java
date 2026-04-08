@@ -10,6 +10,7 @@ import lombok.Setter;
 public class TaskUserDTO {
     private String name;
     private String email;
+    private String job_title;
     private String profile_pic;
 
     public TaskUserDTO(){
